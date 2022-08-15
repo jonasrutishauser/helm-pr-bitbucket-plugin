@@ -1,6 +1,8 @@
 package com.github.jonasrutishauser.bitbucket.helm.impl.config;
 
 import static com.atlassian.bitbucket.util.FilePermission.EXECUTE;
+import static com.atlassian.bitbucket.util.FilePermission.READ;
+import static com.atlassian.bitbucket.util.FilePermission.WRITE;
 import static com.github.jonasrutishauser.bitbucket.helm.impl.config.ScopeService.scope;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Arrays.asList;
@@ -11,7 +13,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -26,6 +27,7 @@ import com.atlassian.bitbucket.event.project.ProjectDeletedEvent;
 import com.atlassian.bitbucket.event.repository.RepositoryDeletedEvent;
 import com.atlassian.bitbucket.repository.Repository;
 import com.atlassian.bitbucket.server.StorageService;
+import com.atlassian.bitbucket.util.FilePermission;
 import com.atlassian.bitbucket.util.MoreFiles;
 import com.atlassian.bitbucket.util.SetFilePermissionRequest;
 import com.atlassian.event.api.EventListener;
@@ -112,10 +114,11 @@ public class HelmConfiguration {
     }
 
     void uploadBinary(InputStream inputStream) throws IOException {
-        Path binaryPath = Paths.get(getHelmBinary(HelmBinaryType.UPLOADED));
+        Path binaryPath = MoreFiles.resolve(storageService.getSharedHomeDir(), "binaries", "uploaded", "helm");
         MoreFiles.mkdir(binaryPath.getParent());
         Files.copy(inputStream, binaryPath, REPLACE_EXISTING);
-        MoreFiles.setPermissions(new SetFilePermissionRequest.Builder(binaryPath).ownerPermission(EXECUTE).build());
+        MoreFiles.setPermissions(new SetFilePermissionRequest.Builder(binaryPath).ownerPermission(EXECUTE)
+                .ownerPermission(READ).ownerPermission(WRITE).build());
         setHelmBinaryType(HelmBinaryType.UPLOADED);
     }
 
@@ -215,8 +218,8 @@ public class HelmConfiguration {
                 MoreFiles.mkdir(binary.getParent());
                 try (InputStream binaryStream = getClass().getResourceAsStream("/binaries/helm")) {
                     Files.copy(binaryStream, binary, REPLACE_EXISTING);
-                    MoreFiles.setPermissions(
-                            new SetFilePermissionRequest.Builder(binary).ownerPermission(EXECUTE).build());
+                    MoreFiles.setPermissions(new SetFilePermissionRequest.Builder(binary).ownerPermission(EXECUTE)
+                            .ownerPermission(READ).ownerPermission(WRITE).build());
                 } catch (IOException e) {
                     LOGGER.warn("failed to copy embedded helm binary", e);
                 }
@@ -224,7 +227,18 @@ public class HelmConfiguration {
             return binary.toString();
         }
         if (type == HelmBinaryType.UPLOADED) {
-            return MoreFiles.resolve(storageService.getHomeDir(), "binaries", "uploaded", "helm").toString();
+            Path sharedBinary = MoreFiles.resolve(storageService.getSharedHomeDir(), "binaries", "uploaded", "helm");
+            Path localBinary = MoreFiles.resolve(storageService.getHomeDir(), "binaries", "uploaded", "helm");
+            try {
+                if (!Files.exists(localBinary) || Files.getLastModifiedTime(localBinary)
+                        .compareTo(Files.getLastModifiedTime(sharedBinary)) < 0) {
+                    MoreFiles.mkdir(localBinary.getParent());
+                    Files.copy(sharedBinary, localBinary, REPLACE_EXISTING);
+                }
+            } catch (IOException e) {
+                LOGGER.warn("failed to copy uploaded helm binary", e);
+            }
+            return localBinary.toString();
         }
         return "helm";
     }

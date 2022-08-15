@@ -40,12 +40,14 @@ public class HelmConfigurationTest {
         PluginSettingsFactory settingsFactory = mock(PluginSettingsFactory.class);
         when(settingsFactory.createGlobalSettings()).thenReturn(settings);
         when(storageService.getHomeDir()).thenReturn(Paths.get("target", "test-home"));
+        when(storageService.getSharedHomeDir()).thenReturn(Paths.get("target", "test-shared-home"));
         testee = new HelmConfiguration(settingsFactory, storageService);
     }
 
     @After
     public void cleanupHome() {
         MoreFiles.deleteQuietly(storageService.getHomeDir());
+        MoreFiles.deleteQuietly(storageService.getSharedHomeDir());
     }
 
     @Test
