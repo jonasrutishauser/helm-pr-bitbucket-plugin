@@ -34,7 +34,7 @@ jobs:
         run: >
           mvn -V -gs $GITHUB_WORKSPACE/git-settings.xml -B -e release:clean release:prepare && 
           echo "::set-output name=RELEASED_VERSION::$(grep scm.tag= release.properties | cut -d'=' -f2 | cut -c2-)" && 
-          mvn -gs $GITHUB_WORKSPACE/git-settings.xml -B -e release:perform
+          mvn -gs $GITHUB_WORKSPACE/git-settings.xml -B -e release:perform -Dgoals=verify
         env:
           GITHUB_TOKEN: ${{ github.token }}
         id: release
@@ -42,7 +42,7 @@ jobs:
         uses: actions/create-release@v1
         with:
           tag_name: v${{ steps.release.outputs.RELEASED_VERSION }}
-          release_name: Transactional Event Library ${{ steps.release.outputs.RELEASED_VERSION }}
+          release_name: Helm PR Bitbucket Plugin ${{ steps.release.outputs.RELEASED_VERSION }}
           body: ${{ github.event.inputs.release-body }}
           artifacts: target/*.obr
         env:
