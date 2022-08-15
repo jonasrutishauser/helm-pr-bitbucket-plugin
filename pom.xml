@@ -12,10 +12,12 @@
     <artifactId>helm-pr-bitbucket-plugin</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>atlassian-plugin</packaging>
-    <name>helm-pr-bitbucket-plugin</name>
-    <description>This is the com.github.jonasrutishauser.bitbucket:helm-pr-bitbucket-plugin plugin for Atlassian Bitbucket Server.</description>
+
+    <name>Helm PR Bitbucket Plugin</name>
+    <description>This is the Helm PR plugin for Atlassian Bitbucket Server.</description>
 
     <properties>
+		<root.artifactId>helm-pr-bitbucket-plugin</root.artifactId>
         <gpg.skip>true</gpg.skip>
         <maven.compiler.release>11</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -136,7 +138,6 @@
         <dependency>
             <groupId>log4j</groupId>
             <artifactId>log4j</artifactId>
-            <version>1.2.17</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -261,4 +262,11 @@
             </snapshots>
         </pluginRepository>
     </pluginRepositories>
+
+	<scm>
+		<connection>${scm.connection}</connection>
+		<developerConnection>${scm.developerConnection}</developerConnection>
+		<url>${scm_url}</url>
+		<tag>HEAD</tag>
+	</scm>
 </project>
