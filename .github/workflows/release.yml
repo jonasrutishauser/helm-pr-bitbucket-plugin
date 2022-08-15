@@ -39,10 +39,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         id: release
       - name: Create Release Entry
-        uses: actions/create-release@v1
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: v${{ steps.release.outputs.RELEASED_VERSION }}
-          release_name: Helm PR Bitbucket Plugin ${{ steps.release.outputs.RELEASED_VERSION }}
+          tag: v${{ steps.release.outputs.RELEASED_VERSION }}
+          name: Helm PR Bitbucket Plugin ${{ steps.release.outputs.RELEASED_VERSION }}
           body: ${{ github.event.inputs.release-body }}
           artifacts: target/*.obr
         env:
