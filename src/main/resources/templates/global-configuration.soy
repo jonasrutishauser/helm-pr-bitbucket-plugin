@@ -1,0 +1,53 @@
+{namespace plugin.helmPr}
+
+/**
+ * @param configuration HelmConfiguration object
+ */
+{template .globalConfigurationPage}
+<html>
+<head>
+    <meta name="decorator" content="atl.admin">
+    <meta name="activeTab" content="helm-pr-global-configuration">
+    <title>Helm PR Configuration</title>
+</head>
+<body>
+<div id="page">
+	<h2>Helm PR Configuration</h2>
+	{call aui.form.form}
+		{param action: '#' /}
+		{param enctype: 'multipart/form-data' /}
+		{param content}
+			{call aui.form.fieldGroup}
+				{param content}
+					{call aui.form.label}
+						{param content}
+							<aui-label for="active">Active</aui-label>
+						{/param}
+						{param isRequired: true /}
+					{/call}
+					<aui-toggle id="active" label="is global active" {if $configuration.active}checked="checked"{/if}></aui-toggle>
+				{/param}
+			{/call}
+			{call aui.form.radioField}
+				{param id: 'helm-binary' /}
+				{param legendContent: 'Helm binary' /}
+				{param isRequired: true /}
+				{param fields: [
+					[ 'id': 'system-helm-binary', 'labelText': 'System', 'value': 'SYSTEM', 'isChecked': $configuration.helmBinaryType == 'SYSTEM', 'isDisabled': $configuration.systemVersion == '', 'descriptionText': $configuration.systemVersion ],
+					[ 'id': 'embedded-helm-binary', 'labelText': 'Embedded', 'value': 'EMBEDDED', 'isChecked': $configuration.helmBinaryType == 'EMBEDDED', 'isDisabled': $configuration.embeddedVersion == '', 'descriptionText': $configuration.embeddedVersion ],
+					[ 'id': 'uploaded-helm-binary', 'labelText': 'Uploaded', 'value': 'UPLOADED', 'isChecked': $configuration.helmBinaryType == 'UPLOADED', 'isDisabled': $configuration.uploadedVersion == '', 'descriptionText': $configuration.uploadedVersion ]
+				] /}				
+			{/call}
+			{call aui.form.fileField}
+				{param id: 'binary-upload' /}
+				{param labelContent: 'Upload helm binary' /}
+			{/call}
+			{call .configurationFormContent}
+				{param configuration: $configuration /}
+			{/call}
+		{/param}
+	{/call}
+</div>
+</body>
+</html>
+{/template}

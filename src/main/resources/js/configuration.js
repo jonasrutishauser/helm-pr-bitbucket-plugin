@@ -1,0 +1,7 @@
+AJS.toInit(function() {
+	$('#overwritten').on('change', function(event) {
+		$('#default-values').prop('disabled', !event.target.checked)
+		$('#test-values-directory').prop('disabled', !event.target.checked)
+		$('#template-mode input').prop('disabled', !event.target.checked)
+	});
+});

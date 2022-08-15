@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}" plugins-version="2"> 
+  <plugin-info>
+    <description>${project.description}</description>  
+    <version>${project.version}</version>  
+    <vendor name="${project.organization.name}" url="${project.organization.url}"/>  
+    <param name="plugin-icon">images/pluginIcon.png</param>  
+    <param name="plugin-logo">images/pluginLogo.png</param> 
+  </plugin-info>  
+  <!-- add our i18n resource -->  
+  <resource type="i18n" name="i18n" location="helm-pr-bitbucket-plugin"/>  
+  <!-- add our web resources -->  
+  <web-resource key="helm-pr-bitbucket-plugin-resources" name="helm-pr-bitbucket-plugin Web Resources"> 
+    <dependency>com.atlassian.auiplugin:ajs</dependency>
+    <resource type="download" name="images/" location="/images"/>  
+    <context>helm-pr-bitbucket-plugin</context> 
+  </web-resource>
+
+  <servlet name="Global Configuration" i18n-name-key="global-configuration.name" key="global-configuration" class="com.github.jonasrutishauser.bitbucket.helm.impl.config.GlobalConfiguration"> 
+    <description key="global-configuration.description">The Global Configuration Page</description>  
+    <url-pattern>/helm-pr/global-configuration</url-pattern> 
+  </servlet>
+  <web-item key="helm-pr-global-configuration" name="Helm Pr Global Configration" section="atl.admin/admin-plugins-section" weight="42">
+    <label key="global-configuration.name">Helm PR Configuration</label>
+    <link>/plugins/servlet/helm-pr/global-configuration</link>
+    <tooltip key="global-configuration.description">The Helm PR Configuration Page</tooltip>
+  </web-item>
+  <servlet name="Configuration" i18n-name-key="repository-configuration.name" key="repo-configuration" class="com.github.jonasrutishauser.bitbucket.helm.impl.config.RepositoryConfiguration"> 
+    <description key="repository-configuration.description">The Helm PR Configuration Page</description>  
+    <url-pattern>/helm-pr/configuration/projects/*</url-pattern> 
+  </servlet>
+  <web-item key="helm-pr-repo-configuration" name="Helm Pr Repository Configration" section="bitbucket.repository.settings.panel/repository-settings-addons-section" weight="42">
+    <label key="repository-configuration.name">Helm PR Configuration</label>
+    <link>/plugins/servlet/helm-pr/configuration/projects/${project.key}/repos/${repository.slug}</link>
+    <tooltip key="repository-configuration.description">The Helm PR Configuration Page</tooltip>
+  </web-item>
+  <web-item key="helm-pr-project-configuration" name="Helm Pr Project Configration" section="bitbucket.project.settings.panel/project-settings-addons-section" weight="42">
+    <label key="repository-configuration.name">Helm PR Configuration</label>
+    <link>/plugins/servlet/helm-pr/configuration/projects/${project.key}</link>
+    <tooltip key="repository-configuration.description">The Helm PR Configuration Page</tooltip>
+  </web-item>
+
+  <client-resource key="configuration-soy" name="Configuration Soy Templates">
+    <directory location="/templates/" />
+    <dependency>com.atlassian.auiplugin:soy</dependency>
+  </client-resource>
+  <web-resource key="helm-configuration-js" name="JS for Configuration"> 
+    <resource type="download" name="configuration.js" location="js/configuration.js"/>  
+  </web-resource>  
+</atlassian-plugin>

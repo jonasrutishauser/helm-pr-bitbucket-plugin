@@ -1,0 +1,49 @@
+name: Maven Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-body:
+        description: 'Text describing the contents of the release.'
+        required: false
+        default: ''
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Setup Git
+        run: >
+          git config --global user.email "actions@github.com" && 
+          git config --global user.name "GitHub Actions" && 
+          echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+                  <servers>
+                    <server>
+                      <id>github</id>
+                      <username>${env.GITHUB_ACTOR}</username>
+                      <password>${env.GITHUB_TOKEN}</password>
+                    </server>
+                  </servers>
+                </settings>' > $GITHUB_WORKSPACE/git-settings.xml
+      - name: Release
+        run: >
+          mvn -V -gs $GITHUB_WORKSPACE/git-settings.xml -B -e release:clean release:prepare && 
+          echo "::set-output name=RELEASED_VERSION::$(grep scm.tag= release.properties | cut -d'=' -f2 | cut -c2-)" && 
+          mvn -gs $GITHUB_WORKSPACE/git-settings.xml -B -e release:perform
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        id: release
+      - name: Create Release Entry
+        uses: actions/create-release@v1
+        with:
+          tag_name: v${{ steps.release.outputs.RELEASED_VERSION }}
+          release_name: Transactional Event Library ${{ steps.release.outputs.RELEASED_VERSION }}
+          body: ${{ github.event.inputs.release-body }}
+          artifacts: target/*.obr
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
