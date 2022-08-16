@@ -16,10 +16,16 @@
     <name>Helm PR Bitbucket Plugin</name>
     <description>This is the Helm PR plugin for Atlassian Bitbucket Server.</description>
 
+    <organization>
+        <name>Jonas Rutishauser</name>
+        <url>https://github.com/jonasrutishauser/</url>
+    </organization>
+
     <properties>
 		<root.artifactId>helm-pr-bitbucket-plugin</root.artifactId>
         <gpg.skip>true</gpg.skip>
-        <maven.compiler.release>11</maven.compiler.release>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <amps.version>8.1.2</amps.version>
         <bitbucket.version>7.21.0</bitbucket.version>
