@@ -11,7 +11,7 @@ class RevListCommandOutputHandler extends LineOutputHandler implements CommandOu
 
     @Override
     public String[] getOutput() {
-        return revs.toArray(String[]::new);
+        return revs.toArray(new String[revs.size()]);
     }
 
     @Override

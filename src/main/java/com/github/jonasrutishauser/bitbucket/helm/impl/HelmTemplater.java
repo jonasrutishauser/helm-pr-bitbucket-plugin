@@ -200,7 +200,7 @@ public class HelmTemplater {
                 .command(buildHelmCommand(chartDir, cacheDir, values)) //
                 .build();
         helmTemplateProcess.execute();
-        if (handler.getError() != null && !handler.getError().isBlank()) {
+        if (handler.getError() != null && !handler.getError().isEmpty()) {
             targetWorktree.mkdir(targetFile.getParent().toString());
             targetWorktree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(handler.getError()));
             targetWorktree.builder().add().path(targetFile.toString()).build().call();
@@ -219,7 +219,7 @@ public class HelmTemplater {
                 .command(buildHelmCommand(chartDir, cacheDir, values, "--output-dir", outputDir.toString())) //
                 .build();
         helmTemplateProcess.execute();
-        if (handler.getError() != null && !handler.getError().isBlank()) {
+        if (handler.getError() != null && !handler.getError().isEmpty()) {
             Path targetFile = Paths.get(targetFolder, "error.txt");
             targetWorktree.mkdir(targetFile.getParent().toString());
             targetWorktree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(handler.getError()));
