@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.inject.Inject;
@@ -39,6 +40,7 @@ import com.atlassian.utils.process.ExternalProcessBuilder;
 import com.atlassian.utils.process.StringProcessHandler;
 import com.github.jonasrutishauser.bitbucket.helm.impl.config.HelmConfiguration;
 import com.github.jonasrutishauser.bitbucket.helm.impl.config.HelmTemplateMode;
+import com.google.common.collect.ImmutableMap;
 
 @Named
 public class HelmTemplater {
@@ -157,7 +159,6 @@ public class HelmTemplater {
         Path testValuesDirectory = chartDir.resolve(configuration.getTestValuesDirectory(repository));
         Path outputDir = Files.createTempDirectory(storageService.getTempDir(), "rendered-");
         Path cacheDir = Files.createTempDirectory(storageService.getTempDir(), "cache-");
-        MoreFiles.mkdir(cacheDir, "repo");
         Path defaultValues = cacheDir.resolve("defaults.yaml");
         MoreFiles.write(defaultValues, configuration.getDefaultValues(repository));
         try {
@@ -198,6 +199,7 @@ public class HelmTemplater {
         ExternalProcess helmTemplateProcess = new ExternalProcessBuilder() //
                 .handler(handler) //
                 .command(buildHelmCommand(chartDir, cacheDir, values)) //
+                .env(getHelmEnvironment(cacheDir)) //
                 .build();
         helmTemplateProcess.execute();
         if (handler.getError() != null && !handler.getError().isEmpty()) {
@@ -217,6 +219,7 @@ public class HelmTemplater {
         ExternalProcess helmTemplateProcess = new ExternalProcessBuilder() //
                 .handler(handler) //
                 .command(buildHelmCommand(chartDir, cacheDir, values, "--output-dir", outputDir.toString())) //
+                .env(getHelmEnvironment(cacheDir)) //
                 .build();
         helmTemplateProcess.execute();
         if (handler.getError() != null && !handler.getError().isEmpty()) {
@@ -235,10 +238,15 @@ public class HelmTemplater {
         }
     }
 
+    private Map<String, String> getHelmEnvironment(Path cacheDir) {
+        return ImmutableMap.of("HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString(), //
+                "HELM_CONFIG_HOME", cacheDir.resolve("helm-config").toString(), //
+                "HELM_DATA_HOME", cacheDir.resolve("helm-data").toString());
+    }
+
     private List<String> buildHelmCommand(Path chartDir, Path cacheDir, List<Path> values, String... additionalArgs) {
         List<String> command = new ArrayList<>(asList( //
-                configuration.getHelmBinary(), "template", "release-name", chartDir.toString(), "--dependency-update", //
-                "--repository-cache", cacheDir.resolve("repo").toString(), //
+                configuration.getHelmBinary(), "template", "release-name", chartDir.toString(), "--dependency-update",
                 "--include-crds"));
         for (Path file : values) {
             command.add("--values");
