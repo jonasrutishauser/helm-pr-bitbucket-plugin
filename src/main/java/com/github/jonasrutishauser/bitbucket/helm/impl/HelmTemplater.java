@@ -1,37 +1,25 @@
 package com.github.jonasrutishauser.bitbucket.helm.impl;
 
-import static com.atlassian.bitbucket.scm.git.worktree.GitCheckoutType.NONE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.atlassian.bitbucket.event.pull.PullRequestEvent;
-import com.atlassian.bitbucket.pull.PullRequest;
-import com.atlassian.bitbucket.repository.RefChange;
 import com.atlassian.bitbucket.repository.Repository;
-import com.atlassian.bitbucket.scm.git.GitWorkTreeBuilder;
 import com.atlassian.bitbucket.scm.git.GitWorkTreeBuilderFactory;
 import com.atlassian.bitbucket.scm.git.command.GitCommandBuilderFactory;
-import com.atlassian.bitbucket.scm.git.command.GitScmCommandBuilder;
 import com.atlassian.bitbucket.scm.git.worktree.GitWorkTree;
-import com.atlassian.bitbucket.scm.git.worktree.GitWorkTreeRepositoryHookInvoker;
-import com.atlassian.bitbucket.scm.git.worktree.PublishGitWorkTreeParameters;
 import com.atlassian.bitbucket.server.StorageService;
 import com.atlassian.bitbucket.util.MoreFiles;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
@@ -39,166 +27,45 @@ import com.atlassian.utils.process.ExternalProcess;
 import com.atlassian.utils.process.ExternalProcessBuilder;
 import com.atlassian.utils.process.StringProcessHandler;
 import com.github.jonasrutishauser.bitbucket.helm.impl.config.HelmConfiguration;
-import com.github.jonasrutishauser.bitbucket.helm.impl.config.HelmTemplateMode;
 import com.google.common.collect.ImmutableMap;
 
 @Named
-public class HelmTemplater {
-    private static final Logger LOGGER = LoggerFactory.getLogger(HelmTemplater.class);
-
-    private static final GitWorkTreeRepositoryHookInvoker NO_HOOKS = new GitWorkTreeRepositoryHookInvoker() {
-        @Override
-        public boolean preUpdate(GitWorkTree workTree, List<RefChange> refChanges) {
-            return true;
-        }
-
-        @Override
-        public void postUpdate(GitWorkTree workTree, List<RefChange> refChanges) {
-            // don't call hooks
-        }
-    };
-
-    private final HelmConfiguration configuration;
-    private final GitWorkTreeBuilderFactory workTreeBuilderFactory;
-    private final GitCommandBuilderFactory commandBuilderFactory;
-    private final StorageService storageService;
+public class HelmTemplater extends AbstractTemplater {
 
     @Inject
     public HelmTemplater(HelmConfiguration configuration,
             @ComponentImport GitWorkTreeBuilderFactory workTreeBuilderFactory,
             @ComponentImport GitCommandBuilderFactory commandBuilderFactory,
             @ComponentImport StorageService storageService) {
-        this.configuration = configuration;
-        this.workTreeBuilderFactory = workTreeBuilderFactory;
-        this.commandBuilderFactory = commandBuilderFactory;
-        this.storageService = storageService;
+        super(configuration, workTreeBuilderFactory, commandBuilderFactory, storageService);
     }
 
-    public boolean isActive(Repository repository) {
-        return configuration.isActive(repository);
+    @Override
+    protected String toolName() {
+        return "helm";
     }
 
-    public String[] addTemplatedCommits(PullRequestEvent event, Set<String> helmCharts) {
-        GitWorkTreeBuilder builder = workTreeBuilderFactory.builder(event.getPullRequest().getToRef().getRepository())
-                .commit(null);
-        try {
-            return builder.execute(workTree -> addTemplated(event, helmCharts, workTree));
-        } catch (IOException e) {
-            LOGGER.warn("Failed to add helm templated files", e);
-        }
-        return null;
-    }
-
-    public void removeReference(PullRequest pullRequest) {
-        GitScmCommandBuilder scmCommandBuilder = commandBuilderFactory.builder(pullRequest.getToRef().getRepository());
-        scmCommandBuilder.updateRef().delete(getRefName(pullRequest)).build().call();
-    }
-
-    private String[] addTemplated(PullRequestEvent event, Set<String> helmCharts, GitWorkTree workTree)
-            throws IOException {
-        // template old version
-        workTreeBuilderFactory.builder(event.getPullRequest().getToRef().getRepository())
-                .commit(event.getPullRequest().getToRef().getLatestCommit()).checkoutType(NONE)
-                .execute(checkoutTree -> {
-                    checkoutTree.builder().reset().hard().build().call();
-                    Path sourcePath;
-                    try {
-                        sourcePath = (Path) checkoutTree.getClass().getMethod("getPath").invoke(checkoutTree);
-                    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                        throw new IllegalStateException(e);
-                    }
-                    for (String chart : helmCharts) {
-                        template(event.getPullRequest().getToRef().getRepository(), sourcePath.resolve(chart), workTree,
-                                chart);
-                    }
-                    return "";
-                });
-        workTree.builder().commit().author(event.getUser()).message("Helm template").build()
-                .call();
-
-        // template new version
-        workTree.builder().rm().path(".").recursive(true).build().call();
-        workTreeBuilderFactory.builder(event.getPullRequest().getFromRef().getRepository())
-                .commit(event.getPullRequest().getFromRef().getLatestCommit()).checkoutType(NONE)
-                .execute(checkoutTree -> {
-                    checkoutTree.builder().reset().hard().build().call();
-                    Path sourcePath;
-                    try {
-                        sourcePath = (Path) checkoutTree.getClass().getMethod("getPath").invoke(checkoutTree);
-                    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                        throw new IllegalStateException(e);
-                    }
-                    for (String chart : helmCharts) {
-                        template(event.getPullRequest().getToRef().getRepository(), sourcePath.resolve(chart), workTree,
-                                chart);
-                    }
-                    return "";
-                });
-        workTree.builder().commit().author(event.getUser()).message("Helm template").build().call();
-
-        String refName = getRefName(event.getPullRequest());
-        // this wont allow to create arbitrary refs (we need to rename this ref
-        // afterwards)
-        workTree.publish(new PublishGitWorkTreeParameters.Builder(NO_HOOKS).branch(refName, null).build());
-        // rename the ref
-        GitScmCommandBuilder scmCommandBuilder = commandBuilderFactory
-                .builder(event.getPullRequest().getToRef().getRepository());
-        scmCommandBuilder.updateRef().set(refName, "refs/heads/" + refName).deref(false).build().call();
-        scmCommandBuilder.updateRef().delete("refs/heads/" + refName).build().call();
-
-        return workTree.builder().revList().limit(2).rev("HEAD").build(new RevListCommandOutputHandler()).call();
-    }
-
-    private String getRefName(PullRequest pullRequest) {
-        return "refs/pull-requests/" + pullRequest.getId() + "/helm";
-    }
-
-    private void template(Repository repository, Path chartDir, GitWorkTree targetWorktree, String targetFolder)
-            throws IOException {
-        HelmTemplateMode templateMode = configuration.getTemplateMode(repository);
+    @Override
+    protected Iterable<String> additionalConfigurations(Repository repository, Path chartDir) throws IOException {
         Path testValuesDirectory = chartDir.resolve(configuration.getTestValuesDirectory(repository));
-        Path outputDir = Files.createTempDirectory(storageService.getTempDir(), "rendered-");
-        Path cacheDir = Files.createTempDirectory(storageService.getTempDir(), "cache-");
-        Path defaultValues = cacheDir.resolve("defaults.yaml");
-        MoreFiles.write(defaultValues, configuration.getDefaultValues(repository));
-        try {
-            if (templateMode.isUseOutputDir()) {
-                templateUseOutputDir(chartDir, targetWorktree, targetFolder + "/default", outputDir, cacheDir,
-                        asList(defaultValues));
-            }
-            if (templateMode.isSingleFile()) {
-                templateSingleFile(chartDir, targetWorktree, Paths.get(targetFolder, "default.yaml"), cacheDir,
-                        asList(defaultValues));
-            }
-            if (Files.isDirectory(testValuesDirectory)) {
-                for (String testValue : (Iterable<String>) Files.list(testValuesDirectory) //
-                        .filter(Files::isRegularFile) //
-                        .map(f -> f.getFileName()) //
-                        .map(Path::toString) //
-                        .filter(f -> f.endsWith(".yaml"))::iterator) {
-                    if (templateMode.isUseOutputDir()) {
-                        templateUseOutputDir(chartDir, targetWorktree,
-                                targetFolder + "/" + testValue.replaceAll(".yaml$", ""), outputDir, cacheDir,
-                                asList(defaultValues, testValuesDirectory.resolve(testValue)));
-                    }
-                    if (templateMode.isSingleFile()) {
-                        templateSingleFile(chartDir, targetWorktree, Paths.get(targetFolder, testValue), cacheDir,
-                                asList(defaultValues, testValuesDirectory.resolve(testValue)));
-                    }
-                }
-            }
-        } finally {
-            MoreFiles.deleteQuietly(cacheDir);
-            MoreFiles.deleteQuietly(outputDir);
+        if (Files.isDirectory(testValuesDirectory)) {
+            return Files.list(testValuesDirectory) //
+                    .filter(Files::isRegularFile) //
+                    .map(f -> f.getFileName()) //
+                    .map(Path::toString) //
+                    .filter(f -> f.endsWith(".yaml")) //
+                    .map(f -> f.substring(0, f.length() - 5))::iterator;
         }
+        return emptyList();
     }
 
-    private void templateSingleFile(Path chartDir, GitWorkTree targetWorktree, Path targetFile, Path cacheDir,
-            List<Path> values) throws IOException {
+    @Override
+    protected void templateSingleFile(Repository repository, Path chartDir, GitWorkTree targetWorktree, Path targetFile,
+            Path cacheDir, Optional<String> testValueFile) throws IOException {
         StringProcessHandler handler = new StringProcessHandler();
         ExternalProcess helmTemplateProcess = new ExternalProcessBuilder() //
                 .handler(handler) //
-                .command(buildHelmCommand(chartDir, cacheDir, values)) //
+                .command(buildHelmCommand(chartDir, getValues(repository, chartDir, cacheDir, testValueFile))) //
                 .env(getHelmEnvironment(cacheDir)) //
                 .build();
         helmTemplateProcess.execute();
@@ -213,17 +80,19 @@ public class HelmTemplater {
         }
     }
 
-    private void templateUseOutputDir(Path chartDir, GitWorkTree targetWorktree, String targetFolder, Path outputDir,
-            Path cacheDir, List<Path> values) throws IOException {
+    @Override
+    protected void templateUseOutputDir(Repository repository, Path chartDir, GitWorkTree targetWorktree,
+            Path targetFolder, Path outputDir, Path cacheDir, Optional<String> testValueFile) throws IOException {
         StringProcessHandler handler = new StringProcessHandler();
         ExternalProcess helmTemplateProcess = new ExternalProcessBuilder() //
                 .handler(handler) //
-                .command(buildHelmCommand(chartDir, cacheDir, values, "--output-dir", outputDir.toString())) //
+                .command(buildHelmCommand(chartDir, getValues(repository, chartDir, cacheDir, testValueFile), "--output-dir",
+                        outputDir.toString())) //
                 .env(getHelmEnvironment(cacheDir)) //
                 .build();
         helmTemplateProcess.execute();
         if (handler.getError() != null && !handler.getError().isEmpty()) {
-            Path targetFile = Paths.get(targetFolder, "error.txt");
+            Path targetFile = targetFolder.resolve("error.txt");
             targetWorktree.mkdir(targetFile.getParent().toString());
             targetWorktree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(handler.getError()));
             targetWorktree.builder().add().path(targetFile.toString()).build().call();
@@ -231,11 +100,23 @@ public class HelmTemplater {
         for (Path path : (Iterable<Path>) Files.walk(outputDir).filter(Files::isRegularFile)::iterator) {
             Path relativePath = outputDir.relativize(path);
             relativePath = relativePath.subpath(1, relativePath.getNameCount());
-            String targetPath = targetFolder + "/" + relativePath.toString();
-            targetWorktree.mkdir(targetFolder + "/" + relativePath.getParent().toString());
+            String targetPath = targetFolder.resolve(relativePath).toString();
+            targetWorktree.mkdir(targetFolder.resolve(relativePath).getParent().toString());
             targetWorktree.writeFrom(targetPath, UTF_8, () -> Files.newBufferedReader(path, UTF_8));
             targetWorktree.builder().add().path(targetPath).build().call();
         }
+    }
+
+    private List<Path> getValues(Repository repository, Path chartDir, Path cacheDir, Optional<String> testValueFile)
+            throws IOException {
+        Path defaultValues = cacheDir.resolve("defaults.yaml");
+        if (!Files.isRegularFile(defaultValues)) {
+            MoreFiles.write(defaultValues, configuration.getDefaultValues(repository));
+        }
+        return testValueFile.map(
+                name -> MoreFiles.resolve(chartDir, configuration.getTestValuesDirectory(repository), name + ".yaml")) //
+                .map(testValues -> asList(defaultValues, testValues)) //
+                .orElseGet(() -> asList(defaultValues));
     }
 
     private Map<String, String> getHelmEnvironment(Path cacheDir) {
@@ -244,7 +125,7 @@ public class HelmTemplater {
                 "HELM_DATA_HOME", cacheDir.resolve("helm-data").toString());
     }
 
-    private List<String> buildHelmCommand(Path chartDir, Path cacheDir, List<Path> values, String... additionalArgs) {
+    private List<String> buildHelmCommand(Path chartDir, List<Path> values, String... additionalArgs) {
         List<String> command = new ArrayList<>(asList( //
                 configuration.getHelmBinary(), "template", "release-name", chartDir.toString(), "--dependency-update",
                 "--include-crds"));

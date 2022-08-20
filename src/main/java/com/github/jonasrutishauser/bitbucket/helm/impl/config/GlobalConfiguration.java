@@ -68,12 +68,21 @@ public class GlobalConfiguration extends HttpServlet {
         } catch (FileUploadException e) {
             throw new ServletException(e);
         }
-        configuration.setHelmBinaryType(HelmBinaryType.valueOf(parameters.get("helm-binary").get(0).getString().toUpperCase()));
+        configuration.setBinaryType("helm", BinaryType.valueOf(parameters.get("helm-binary").get(0).getString().toUpperCase()));
+        configuration.setBinaryType("helmfile", BinaryType.valueOf(parameters.get("helmfile-binary").get(0).getString().toUpperCase()));
+        configuration.setBinaryType("kustomize", BinaryType.valueOf(parameters.get("kustomize-binary").get(0).getString().toUpperCase()));
         configuration.setDefaultValues(parameters.get("default-values").get(0).getString());
         configuration.setTestValuesDirectory(parameters.get("test-values-directory").get(0).getString());
         configuration.setTemplateMode(HelmTemplateMode.valueOf(parameters.get("template-mode").get(0).getString().toUpperCase()));
+        configuration.setHelmfileEnvironments(parameters.get("helmfile-environments").get(0).getString());
         if (parameters.get("binary-upload") != null && parameters.get("binary-upload").get(0).getSize() > 0) {
-            configuration.uploadBinary(parameters.get("binary-upload").get(0).getInputStream());
+            configuration.uploadBinary("helm", parameters.get("binary-upload").get(0).getInputStream());
+        }
+        if (parameters.get("helmfile-binary-upload") != null && parameters.get("helmfile-binary-upload").get(0).getSize() > 0) {
+            configuration.uploadBinary("helmfile", parameters.get("helmfile-binary-upload").get(0).getInputStream());
+        }
+        if (parameters.get("kustomize-binary-upload") != null && parameters.get("kustomize-binary-upload").get(0).getSize() > 0) {
+            configuration.uploadBinary("kustomize", parameters.get("kustomize-binary-upload").get(0).getInputStream());
         }
         response.sendRedirect(request.getRequestURI());
     }

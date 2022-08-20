@@ -120,6 +120,13 @@
 		] /}
 		{param isRequired: true /}
 	{/call}
+	{call aui.form.textareaField}
+		{param id: 'helmfile-environments' /}
+		{param labelContent: 'Helmfile environments' /}
+		{param value: $configuration.helmfileEnvironments /}
+		{param placeholderText: 'Environments per line here...' /}
+		{param isDisabled: $isDisabled /}
+	{/call}
 	{call aui.form.buttons}
 		{param content}
 			{call aui.form.submit}

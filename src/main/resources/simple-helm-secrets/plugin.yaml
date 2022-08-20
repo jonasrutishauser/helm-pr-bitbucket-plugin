@@ -1,0 +1,4 @@
+name: "secrets"
+version: "0.0.1"
+ignoreFlags: false
+command: "sh $HELM_PLUGIN_DIR/secrets.sh"

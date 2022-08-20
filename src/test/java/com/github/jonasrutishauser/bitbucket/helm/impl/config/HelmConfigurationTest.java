@@ -113,7 +113,7 @@ public class HelmConfigurationTest {
 
     @Test
     public void getHelmBinary_whenUploaded() {
-        testee.setHelmBinaryType(HelmBinaryType.UPLOADED);
+        testee.setBinaryType("helm", BinaryType.UPLOADED);
 
         assertEquals("target/test-home/binaries/uploaded/helm", testee.getHelmBinary());
     }
@@ -288,7 +288,7 @@ public class HelmConfigurationTest {
         Map<String, Object> configuration = testee.getGlobalConfiguration();
 
         assertEquals(Boolean.TRUE, configuration.get("active"));
-        assertEquals(HelmBinaryType.EMBEDDED, configuration.get("helmBinaryType"));
+        assertEquals(BinaryType.EMBEDDED, configuration.get("helmBinaryType"));
         assertNotNull(configuration.get("systemVersion"));
         assertNotNull(configuration.get("embeddedVersion"));
         assertEquals("", configuration.get("uploadedVersion"));
@@ -340,9 +340,9 @@ public class HelmConfigurationTest {
 
     @Test
     public void uploadBinary() throws IOException {
-        testee.uploadBinary(getClass().getResourceAsStream("/binaries/helm"));
+        testee.uploadBinary("helm", getClass().getResourceAsStream("/binaries/helm"));
 
-        assertEquals(testee.getVersion(HelmBinaryType.EMBEDDED), testee.getVersion(HelmBinaryType.UPLOADED));
+        assertEquals(testee.getVersion("helm", BinaryType.EMBEDDED), testee.getVersion("helm", BinaryType.UPLOADED));
     }
 
     private Repository createRepository(int repoId, int projectId) {

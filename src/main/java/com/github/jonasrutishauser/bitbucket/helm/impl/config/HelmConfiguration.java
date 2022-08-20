@@ -27,7 +27,6 @@ import com.atlassian.bitbucket.event.project.ProjectDeletedEvent;
 import com.atlassian.bitbucket.event.repository.RepositoryDeletedEvent;
 import com.atlassian.bitbucket.repository.Repository;
 import com.atlassian.bitbucket.server.StorageService;
-import com.atlassian.bitbucket.util.FilePermission;
 import com.atlassian.bitbucket.util.MoreFiles;
 import com.atlassian.bitbucket.util.SetFilePermissionRequest;
 import com.atlassian.event.api.EventListener;
@@ -49,7 +48,7 @@ public class HelmConfiguration {
     private static final String PROJECT_KEY_PREFIX = KEY_PREFIX + "projects:";
     private static final String REPO_KEY_PREFIX = KEY_PREFIX + "repos:";
 
-    private static final String[] CONFIGURATION_KEYS = {"template-mode", "test-values-directory", "default-values"};
+    private static final String[] CONFIGURATION_KEYS = {"template-mode", "test-values-directory", "default-values", "helmfile-environments"};
     private static final String ACTIVE_KEY = ":active";
 
     private final PluginSettings settings;
@@ -64,10 +63,18 @@ public class HelmConfiguration {
 
     Map<String, Object> getGlobalConfiguration() {
         return ImmutableMap.<String, Object>builder() //
-                .put("helmBinaryType", getHelmBinaryType()) //
-                .put("systemVersion", getVersion(HelmBinaryType.SYSTEM)) //
-                .put("embeddedVersion", getVersion(HelmBinaryType.EMBEDDED)) //
-                .put("uploadedVersion", getVersion(HelmBinaryType.UPLOADED)) //
+                .put("helmBinaryType", getBinaryType("helm")) //
+                .put("systemVersion", getVersion("helm", BinaryType.SYSTEM)) //
+                .put("embeddedVersion", getVersion("helm", BinaryType.EMBEDDED)) //
+                .put("uploadedVersion", getVersion("helm", BinaryType.UPLOADED)) //
+                .put("helmfileBinaryType", getBinaryType("helmfile")) //
+                .put("helmfileSystemVersion", getVersion("helmfile", BinaryType.SYSTEM)) //
+                .put("helmfileEmbeddedVersion", getVersion("helmfile", BinaryType.EMBEDDED)) //
+                .put("helmfileUploadedVersion", getVersion("helmfile", BinaryType.UPLOADED)) //
+                .put("kustomizeBinaryType", getBinaryType("kustomize")) //
+                .put("kustomizeSystemVersion", getVersion("kustomize", BinaryType.SYSTEM)) //
+                .put("kustomizeEmbeddedVersion", getVersion("kustomize", BinaryType.EMBEDDED)) //
+                .put("kustomizeUploadedVersion", getVersion("kustomize", BinaryType.UPLOADED)) //
                 .putAll(getConfiguration((Scope) null)) //
                 .build();
     }
@@ -77,6 +84,7 @@ public class HelmConfiguration {
                 .put("defaultValues", getDefaultValues(scope)) //
                 .put("testValuesDirectory", getTestValuesDirectory(scope)) //
                 .put("templateMode", getTemplateMode(scope)) //
+                .put("helmfileEnvironments", getHelmfileEnvironments(scope)) //
                 .put("active", getActive(scope));
         if (scope != null) {
             builder.put("overwritten", Boolean.valueOf(isOverwritten(scope)));
@@ -105,37 +113,45 @@ public class HelmConfiguration {
         settings.put(KEY_PREFIX + "active", Boolean.toString(active));
     }
 
-    private HelmBinaryType getHelmBinaryType() {
-        return getEnumValue("helm-binary-type", null, HelmBinaryType.EMBEDDED);
+    private BinaryType getBinaryType(String binary) {
+        return getEnumValue(binary + "-binary-type", null, BinaryType.EMBEDDED);
     }
 
-    void setHelmBinaryType(HelmBinaryType type) {
-        settings.put(KEY_PREFIX + "helm-binary-type", type.name());
+    void setBinaryType(String binary, BinaryType type) {
+        settings.put(KEY_PREFIX + binary + "-binary-type", type.name());
     }
 
-    void uploadBinary(InputStream inputStream) throws IOException {
-        Path binaryPath = MoreFiles.resolve(storageService.getSharedHomeDir(), "binaries", "uploaded", "helm");
+    void uploadBinary(String binary, InputStream inputStream) throws IOException {
+        Path binaryPath = MoreFiles.resolve(storageService.getSharedHomeDir(), "binaries", "uploaded", binary);
         MoreFiles.mkdir(binaryPath.getParent());
         Files.copy(inputStream, binaryPath, REPLACE_EXISTING);
         MoreFiles.setPermissions(new SetFilePermissionRequest.Builder(binaryPath).ownerPermission(EXECUTE)
                 .ownerPermission(READ).ownerPermission(WRITE).build());
-        setHelmBinaryType(HelmBinaryType.UPLOADED);
+        setBinaryType(binary, BinaryType.UPLOADED);
     }
 
-    String getVersion(HelmBinaryType type) {
-        String helmBinary = getHelmBinary(type);
-        if (helmBinary == null) {
+    String getVersion(String binary, BinaryType type) {
+        String binaryFile = getBinary(binary, type);
+        if (binaryFile == null) {
             return "";
         }
         StringProcessHandler handler = new StringProcessHandler();
         ExternalProcess helmTemplateProcess = new ExternalProcessBuilder().handler(handler)
-                .command(asList(helmBinary, "version")).build();
+                .command(asList(binaryFile, "version")).build();
         helmTemplateProcess.execute();
         return handler.getOutput();
     }
 
     public String getHelmBinary() {
-        return getHelmBinary(getHelmBinaryType());
+        return getBinary("helm", getBinaryType("helm"));
+    }
+
+    public String getHelmfileBinary() {
+        return getBinary("helmfile", getBinaryType("helmfile"));
+    }
+
+    public String getKustomizeBinary() {
+        return getBinary("kustomize", getBinaryType("kustomize"));
     }
 
     void setDefaultValues(String defaultValues) {
@@ -172,6 +188,18 @@ public class HelmConfiguration {
 
     private HelmTemplateMode getTemplateMode(Scope scope) {
         return getEnumValue(CONFIGURATION_KEYS[0], scope, HelmTemplateMode.BOTH);
+    }
+
+    void setHelmfileEnvironments(String environments) {
+        settings.put(KEY_PREFIX + CONFIGURATION_KEYS[3], environments);
+    }
+
+    public String getHelmfileEnvironments(Repository repository) {
+        return getHelmfileEnvironments(scope(repository));
+    }
+
+    private String getHelmfileEnvironments(Scope scope) {
+        return getSettingsValue(CONFIGURATION_KEYS[3], scope, "");
     }
 
     void setConfiguration(Scope scope, Map<String, String[]> values) {
@@ -211,36 +239,36 @@ public class HelmConfiguration {
         return settings.get(REPO_KEY_PREFIX + scope.getRepository().getId() + ":" + CONFIGURATION_KEYS[0]) != null;
     }
 
-    private String getHelmBinary(HelmBinaryType type) {
-        if (type == HelmBinaryType.EMBEDDED) {
-            Path binary = MoreFiles.resolve(storageService.getHomeDir(), "binaries", "helm");
+    private String getBinary(String name, BinaryType type) {
+        if (type == BinaryType.EMBEDDED) {
+            Path binary = MoreFiles.resolve(storageService.getHomeDir(), "binaries", name);
             if (!Files.exists(binary)) {
                 MoreFiles.mkdir(binary.getParent());
-                try (InputStream binaryStream = getClass().getResourceAsStream("/binaries/helm")) {
+                try (InputStream binaryStream = getClass().getResourceAsStream("/binaries/" + name)) {
                     Files.copy(binaryStream, binary, REPLACE_EXISTING);
                     MoreFiles.setPermissions(new SetFilePermissionRequest.Builder(binary).ownerPermission(EXECUTE)
                             .ownerPermission(READ).ownerPermission(WRITE).build());
                 } catch (IOException e) {
-                    LOGGER.warn("failed to copy embedded helm binary", e);
+                    LOGGER.warn("failed to copy embedded " + name + " binary", e);
                 }
             }
             return binary.toString();
         }
-        if (type == HelmBinaryType.UPLOADED) {
-            Path sharedBinary = MoreFiles.resolve(storageService.getSharedHomeDir(), "binaries", "uploaded", "helm");
-            Path localBinary = MoreFiles.resolve(storageService.getHomeDir(), "binaries", "uploaded", "helm");
+        if (type == BinaryType.UPLOADED) {
+            Path sharedBinary = MoreFiles.resolve(storageService.getSharedHomeDir(), "binaries", "uploaded", name);
+            Path localBinary = MoreFiles.resolve(storageService.getHomeDir(), "binaries", "uploaded", name);
             try {
-                if (!Files.exists(localBinary) || Files.getLastModifiedTime(localBinary)
-                        .compareTo(Files.getLastModifiedTime(sharedBinary)) < 0) {
+                if (Files.exists(sharedBinary) && (!Files.exists(localBinary) || Files.getLastModifiedTime(localBinary)
+                        .compareTo(Files.getLastModifiedTime(sharedBinary)) < 0)) {
                     MoreFiles.mkdir(localBinary.getParent());
                     Files.copy(sharedBinary, localBinary, REPLACE_EXISTING);
                 }
             } catch (IOException e) {
-                LOGGER.warn("failed to copy uploaded helm binary", e);
+                LOGGER.warn("failed to copy uploaded " + name + " binary", e);
             }
             return localBinary.toString();
         }
-        return "helm";
+        return name;
     }
 
     private boolean getBooleanValue(String key, Scope scope, boolean defaultValue) {

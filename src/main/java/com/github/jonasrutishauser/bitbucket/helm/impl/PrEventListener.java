@@ -45,17 +45,20 @@ public class PrEventListener {
     private final NavBuilder navBuilder;
     private final CommentService commentService;
     private final HelmTemplater helmTemplater;
+    private final HelmfileTemplater helmfileTemplater;
     private final PluginUser pluginUser;
 
     @Inject
     public PrEventListener(@ComponentImport ContentService contentService,
             @ComponentImport PullRequestService prService, @ComponentImport NavBuilder navBuilder,
-            @ComponentImport CommentService commentService, HelmTemplater helmTemplater, PluginUser pluginUser) {
+            @ComponentImport CommentService commentService, HelmTemplater helmTemplater,
+            HelmfileTemplater helmfileTemplater, PluginUser pluginUser) {
         this.contentService = contentService;
         this.prService = prService;
         this.navBuilder = navBuilder;
         this.commentService = commentService;
         this.helmTemplater = helmTemplater;
+        this.helmfileTemplater = helmfileTemplater;
         this.pluginUser = pluginUser;
     }
 
@@ -91,6 +94,11 @@ public class PrEventListener {
                 LOGGER.debug("Helm charts detected: {}", helmCharts);
                 addHelmDiff(event, helmCharts);
             }
+            Set<String> helmfileDirectories = getAffectedHelmfileDirectories(event.getPullRequest());
+            if (!helmfileDirectories.isEmpty()) {
+                LOGGER.debug("helmfile directories detected: {}", helmfileDirectories);
+                addHelmfileDiff(event, helmfileDirectories);
+            }
         }
     }
 
@@ -105,7 +113,20 @@ public class PrEventListener {
                     .withPermission(event.getPullRequest().getToRef().getRepository(), Permission.REPO_READ).call(
                             () -> commentService
                                     .addComment(new AddCommentRequest.Builder(event.getPullRequest(),
-                                            String.format("Helm Template diff generated ([view changes](%s))",
+                                            String.format("Helm template diff generated ([view changes](%s))",
+                                                    getPullRequestDiffUrl(event.getPullRequest(), refs[0], refs[1])))
+                                                            .build()));
+        }
+    }
+
+    private void addHelmfileDiff(PullRequestEvent event, Set<String> helmfileDirectories) {
+        String[] refs = helmfileTemplater.addTemplatedCommits(event, helmfileDirectories);
+        if (refs.length > 1) {
+            pluginUser.impersonating("add pr comment")
+                    .withPermission(event.getPullRequest().getToRef().getRepository(), Permission.REPO_READ).call(
+                            () -> commentService
+                                    .addComment(new AddCommentRequest.Builder(event.getPullRequest(),
+                                            String.format("Helmfile template diff generated ([view changes](%s))",
                                                     getPullRequestDiffUrl(event.getPullRequest(), refs[0], refs[1])))
                                                             .build()));
         }
@@ -117,6 +138,14 @@ public class PrEventListener {
     }
 
     private Set<String> getAffectedHelmCharts(PullRequest pullRequest) {
+        return getAffectedDirectories(pullRequest, "Chart.yaml");
+    }
+
+    private Set<String> getAffectedHelmfileDirectories(PullRequest pullRequest) {
+        return getAffectedDirectories(pullRequest, "helmfile.yaml");
+    }
+
+    private Set<String> getAffectedDirectories(PullRequest pullRequest, String filenameToSearch) {
         Set<String> chartDirs = new TreeSet<>();
         // get all changed directories
         prService.streamChanges(new PullRequestChangesRequest.Builder(pullRequest).withComments(false).build(),
@@ -137,12 +166,12 @@ public class PrEventListener {
                         return true;
                     }
                 });
-        // only keep directories which contain a chart
+        // only keep directories which contain filenameToSearch
         for (Iterator<String> iterator = chartDirs.iterator(); iterator.hasNext();) {
             String dir = iterator.next();
             try {
                 if (FILE != contentService.getType(pullRequest.getFromRef().getRepository(),
-                        pullRequest.getFromRef().getId(), dir + "/Chart.yaml")) {
+                        pullRequest.getFromRef().getId(), dir + "/" + filenameToSearch)) {
                     iterator.remove();
                 }
             } catch (NoSuchPathException e) {

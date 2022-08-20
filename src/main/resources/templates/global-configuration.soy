@@ -42,6 +42,34 @@
 				{param id: 'binary-upload' /}
 				{param labelContent: 'Upload helm binary' /}
 			{/call}
+			{call aui.form.radioField}
+				{param id: 'helmfile-binary' /}
+				{param legendContent: 'Helmfile binary' /}
+				{param isRequired: true /}
+				{param fields: [
+					[ 'id': 'system-helmfile-binary', 'labelText': 'System', 'value': 'SYSTEM', 'isChecked': $configuration.helmfileBinaryType == 'SYSTEM', 'isDisabled': $configuration.helmfileSystemVersion == '', 'descriptionText': $configuration.helmfileSystemVersion ],
+					[ 'id': 'embedded-helmfile-binary', 'labelText': 'Embedded', 'value': 'EMBEDDED', 'isChecked': $configuration.helmfileBinaryType == 'EMBEDDED', 'isDisabled': $configuration.helmfileEmbeddedVersion == '', 'descriptionText': $configuration.helmfileEmbeddedVersion ],
+					[ 'id': 'uploaded-helmfile-binary', 'labelText': 'Uploaded', 'value': 'UPLOADED', 'isChecked': $configuration.helmfileBinaryType == 'UPLOADED', 'isDisabled': $configuration.helmfileUploadedVersion == '', 'descriptionText': $configuration.helmfileUploadedVersion ]
+				] /}				
+			{/call}
+			{call aui.form.fileField}
+				{param id: 'helmfile-binary-upload' /}
+				{param labelContent: 'Upload helmfile binary' /}
+			{/call}
+			{call aui.form.radioField}
+				{param id: 'kustomize-binary' /}
+				{param legendContent: 'Kustomize binary' /}
+				{param isRequired: true /}
+				{param fields: [
+					[ 'id': 'system-kustomize-binary', 'labelText': 'System', 'value': 'SYSTEM', 'isChecked': $configuration.kustomizeBinaryType == 'SYSTEM', 'isDisabled': $configuration.kustomizeSystemVersion == '', 'descriptionText': $configuration.kustomizeSystemVersion ],
+					[ 'id': 'embedded-kustomize-binary', 'labelText': 'Embedded', 'value': 'EMBEDDED', 'isChecked': $configuration.kustomizeBinaryType == 'EMBEDDED', 'isDisabled': $configuration.kustomizeEmbeddedVersion == '', 'descriptionText': $configuration.kustomizeEmbeddedVersion ],
+					[ 'id': 'uploaded-kustomize-binary', 'labelText': 'Uploaded', 'value': 'UPLOADED', 'isChecked': $configuration.kustomizeBinaryType == 'UPLOADED', 'isDisabled': $configuration.kustomizeUploadedVersion == '', 'descriptionText': $configuration.kustomizeUploadedVersion ]
+				] /}				
+			{/call}
+			{call aui.form.fileField}
+				{param id: 'kustomize-binary-upload' /}
+				{param labelContent: 'Upload kustomize binary' /}
+			{/call}
 			{call .configurationFormContent}
 				{param configuration: $configuration /}
 			{/call}
