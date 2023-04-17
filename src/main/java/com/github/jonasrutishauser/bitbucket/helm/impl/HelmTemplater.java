@@ -83,6 +83,21 @@ public class HelmTemplater extends AbstractTemplater {
     @Override
     protected void templateUseOutputDir(Repository repository, Path chartDir, GitWorkTree targetWorktree,
             Path targetFolder, Path outputDir, Path cacheDir, Optional<String> testValueFile) throws IOException {
+        StringProcessHandler dependencyHandler = new StringProcessHandler();
+        ExternalProcess helmDependencyProcess = new ExternalProcessBuilder() //
+                .handler(dependencyHandler) //
+                .command(asList( //
+                        configuration.getHelmBinary(), "dependency", "build", chartDir.toString())) //
+                .env(getHelmEnvironment(cacheDir)) //
+                .build();
+        helmDependencyProcess.execute();
+        if (dependencyHandler.getError() != null && !dependencyHandler.getError().isEmpty()) {
+            Path targetFile = targetFolder.resolve("error.txt");
+            targetWorktree.mkdir(targetFile.getParent().toString());
+            targetWorktree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(dependencyHandler.getError()));
+            targetWorktree.builder().add().path(targetFile.toString()).build().call();
+            return;
+        }
         StringProcessHandler handler = new StringProcessHandler();
         ExternalProcess helmTemplateProcess = new ExternalProcessBuilder() //
                 .handler(handler) //
@@ -127,8 +142,7 @@ public class HelmTemplater extends AbstractTemplater {
 
     private List<String> buildHelmCommand(Path chartDir, List<Path> values, String... additionalArgs) {
         List<String> command = new ArrayList<>(asList( //
-                configuration.getHelmBinary(), "template", "release-name", chartDir.toString(), "--dependency-update",
-                "--include-crds"));
+                configuration.getHelmBinary(), "template", "release-name", chartDir.toString(), "--include-crds"));
         for (Path file : values) {
             command.add("--values");
             command.add(file.toString());
