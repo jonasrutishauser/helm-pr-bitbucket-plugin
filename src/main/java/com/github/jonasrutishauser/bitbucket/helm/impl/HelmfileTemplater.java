@@ -88,8 +88,8 @@ public class HelmfileTemplater extends AbstractTemplater {
         StringProcessHandler handler = new StringProcessHandler();
         ExternalProcess helmTemplateProcess = new ExternalProcessBuilder() //
                 .handler(handler) //
-                .command(buildHelmfileCommand(directory, additionalConfiguration.orElse("default"), "--output-dir",
-                        outputDir.toString())) //
+                .command(buildHelmfileCommand(directory, additionalConfiguration.orElse("default"),
+                        "--output-dir-template", outputDir.toString() + "/{{ .Release.Name}}")) //
                 .env(getHelmfileEnvironment(cacheDir)) //
                 .build();
         helmTemplateProcess.execute();
@@ -101,7 +101,6 @@ public class HelmfileTemplater extends AbstractTemplater {
         }
         for (Path path : (Iterable<Path>) Files.walk(outputDir).filter(Files::isRegularFile)::iterator) {
             Path relativePath = outputDir.relativize(path);
-            relativePath = relativePath.subpath(1, relativePath.getNameCount());
             String targetPath = targetFolder.resolve(relativePath).toString();
             targetWorkTree.mkdir(targetFolder.resolve(relativePath).getParent().toString());
             targetWorkTree.writeFrom(targetPath, UTF_8, () -> Files.newBufferedReader(path, UTF_8));
