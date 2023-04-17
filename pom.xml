@@ -162,10 +162,10 @@
         					<goal>wget</goal>
         				</goals>
         				<configuration>
-        					<url>https://get.helm.sh/helm-v3.9.3-linux-amd64.tar.gz</url>
+        					<url>https://get.helm.sh/helm-v3.11.3-linux-amd64.tar.gz</url>
         					<unpack>true</unpack>
         					<outputDirectory>${project.build.outputDirectory}/binaries</outputDirectory>
-        					<sha256>2d07360a9d93b18488f1ddb9de818b92ba738acbec6e1c66885a88703fa7b21c</sha256>
+        					<sha256>ca2d5d40d4cdfb9a3a6205dd803b5bc8def00bd2f13e5526c127e9b667974a89</sha256>
         					<fileMappers>
         						<org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
         							<pattern>.*/(?!helm).*</pattern>
@@ -184,10 +184,10 @@
         					<goal>wget</goal>
         				</goals>
         				<configuration>
-        					<url>https://github.com/helmfile/helmfile/releases/download/v0.145.3/helmfile_0.145.3_linux_amd64.tar.gz</url>
+        					<url>https://github.com/helmfile/helmfile/releases/download/v0.152.0/helmfile_0.152.0_linux_amd64.tar.gz</url>
         					<unpack>true</unpack>
         					<outputDirectory>${project.build.outputDirectory}/binaries</outputDirectory>
-        					<sha256>7ec58255927eb5dcd18d9361de52ed548b84f657356dc5f9e88ecfb4af1d2279</sha256>
+        					<sha256>519d8cbdb755abe7cbe1b8e926cf91e4355169cd587103f2d4529d6e4e3d45a3</sha256>
         					<fileMappers>
         						<org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
         							<pattern>^(?!helmfile).*</pattern>
@@ -202,9 +202,9 @@
         					<goal>wget</goal>
         				</goals>
         				<configuration>
-        					<url>https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv4.5.7/kustomize_v4.5.7_linux_amd64.tar.gz</url>
+        					<url>https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.0.1/kustomize_v5.0.1_linux_amd64.tar.gz</url>
         					<unpack>true</unpack>
-        					<sha256>701e3c4bfa14e4c520d481fdf7131f902531bfc002cb5062dcf31263a09c70c9</sha256>
+        					<sha256>dca623b36aef84fbdf28f79d02e9b3705ff641424ac1f872d5420dadb12fb78d</sha256>
         					<outputDirectory>${project.build.outputDirectory}/binaries</outputDirectory>
         					<fileMappers>
         						<org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
