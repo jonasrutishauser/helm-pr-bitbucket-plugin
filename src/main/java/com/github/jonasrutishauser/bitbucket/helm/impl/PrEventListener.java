@@ -108,7 +108,7 @@ public class PrEventListener {
 
     private void addHelmDiff(PullRequestEvent event, Set<String> helmCharts) {
         String[] refs = helmTemplater.addTemplatedCommits(event, helmCharts);
-        if (refs.length > 1) {
+        if (refs != null && refs.length > 1 && prStillExists(event.getPullRequest())) {
             pluginUser.impersonating("add pr comment")
                     .withPermission(event.getPullRequest().getToRef().getRepository(), Permission.REPO_READ).call(
                             () -> commentService
@@ -121,7 +121,7 @@ public class PrEventListener {
 
     private void addHelmfileDiff(PullRequestEvent event, Set<String> helmfileDirectories) {
         String[] refs = helmfileTemplater.addTemplatedCommits(event, helmfileDirectories);
-        if (refs.length > 1) {
+        if (refs != null && refs.length > 1 && prStillExists(event.getPullRequest())) {
             pluginUser.impersonating("add pr comment")
                     .withPermission(event.getPullRequest().getToRef().getRepository(), Permission.REPO_READ).call(
                             () -> commentService
@@ -130,6 +130,21 @@ public class PrEventListener {
                                                     getPullRequestDiffUrl(event.getPullRequest(), refs[0], refs[1])))
                                                             .build()));
         }
+    }
+
+    /**
+     * There is a bug report, that when a comment is added to a PR after it got deleted, the database will be corrupt.
+     * Since it takes a while to template all the stuff this is a risk. To reduce it, we check that the PR still exists
+     * just before adding the comment. There is still a race condition, but it is much less likely to happen now.
+     *
+     * @see <a href="https://jira.atlassian.com/browse/BSERV-12953">Bug Report</a>
+     *
+     * @param pullRequest the pull request to check
+     * @return true if it still exists
+     */
+    private boolean prStillExists(PullRequest pullRequest) {
+        PullRequest pr = this.prService.getById(pullRequest.getToRef().getRepository().getId(), pullRequest.getId());
+        return pr != null;
     }
 
     private String getPullRequestDiffUrl(PullRequest pullRequest, String commit, String since) {
