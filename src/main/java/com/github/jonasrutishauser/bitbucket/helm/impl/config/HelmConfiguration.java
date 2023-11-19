@@ -5,14 +5,15 @@ import static com.atlassian.bitbucket.util.FilePermission.READ;
 import static com.atlassian.bitbucket.util.FilePermission.WRITE;
 import static com.github.jonasrutishauser.bitbucket.helm.impl.config.ScopeService.scope;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static java.util.Arrays.asList;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Stream.concat;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -20,6 +21,11 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+import org.apache.commons.exec.CommandLine;
+import org.apache.commons.exec.DefaultExecutor;
+import org.apache.commons.exec.ExecuteException;
+import org.apache.commons.exec.ExecuteWatchdog;
+import org.apache.commons.exec.PumpStreamHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,9 +39,6 @@ import com.atlassian.event.api.EventListener;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
-import com.atlassian.utils.process.ExternalProcess;
-import com.atlassian.utils.process.ExternalProcessBuilder;
-import com.atlassian.utils.process.StringProcessHandler;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 
@@ -135,11 +138,24 @@ public class HelmConfiguration {
         if (binaryFile == null) {
             return "";
         }
-        StringProcessHandler handler = new StringProcessHandler();
-        ExternalProcess helmTemplateProcess = new ExternalProcessBuilder().handler(handler)
-                .command(asList(binaryFile, "version")).build();
-        helmTemplateProcess.execute();
-        return handler.getOutput();
+        if ((binaryFile.contains("/") || binaryFile.contains("\\")) && !Files.exists(Path.of(binaryFile))) {
+            return "";
+        }
+        CommandLine commandLine = new CommandLine(binaryFile);
+        commandLine.addArgument("version");
+        DefaultExecutor executor = new DefaultExecutor();
+        executor.setWatchdog(new ExecuteWatchdog(10_000));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        PumpStreamHandler psh = new PumpStreamHandler(output);
+        executor.setStreamHandler(psh);
+        try {
+            executor.execute(commandLine);
+        } catch (ExecuteException e) {
+            LOGGER.warn("failed to determine version", e);
+        } catch (IOException e) {
+            // ignore
+        }
+        return output.toString();
     }
 
     public String getHelmBinary() {
@@ -242,7 +258,7 @@ public class HelmConfiguration {
     private String getBinary(String name, BinaryType type) {
         if (type == BinaryType.EMBEDDED) {
             Path binary = MoreFiles.resolve(storageService.getHomeDir(), "binaries", name);
-            if (!Files.exists(binary)) {
+            if (needsToExtract(name, binary)) {
                 MoreFiles.mkdir(binary.getParent());
                 try (InputStream binaryStream = getClass().getResourceAsStream("/binaries/" + name)) {
                     Files.copy(binaryStream, binary, REPLACE_EXISTING);
@@ -269,6 +285,16 @@ public class HelmConfiguration {
             return localBinary.toString();
         }
         return name;
+    }
+
+    private boolean needsToExtract(String name, Path binary) {
+        try {
+            return !Files.exists(binary) || Files.getLastModifiedTime(binary).compareTo(FileTime
+                    .fromMillis(getClass().getResource("/binaries/" + name).openConnection().getLastModified())) < 0;
+        } catch (IOException e) {
+            LOGGER.warn("failed to compare extracted binary", e);
+            return true;
+        }
     }
 
     private boolean getBooleanValue(String key, Scope scope, boolean defaultValue) {

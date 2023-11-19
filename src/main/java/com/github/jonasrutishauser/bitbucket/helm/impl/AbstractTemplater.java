@@ -1,16 +1,22 @@
 package com.github.jonasrutishauser.bitbucket.helm.impl;
 
-import static com.atlassian.bitbucket.scm.git.worktree.GitCheckoutType.NONE;
+import static java.util.Arrays.stream;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.apache.commons.exec.CommandLine;
+import org.apache.commons.exec.DefaultExecutor;
+import org.apache.commons.exec.ExecuteException;
+import org.apache.commons.exec.ExecuteWatchdog;
+import org.apache.commons.exec.PumpStreamHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,21 +111,22 @@ abstract class AbstractTemplater {
 
     private void template(PullRequestEvent event, Set<String> directoriesToTemplate, GitWorkTree targetWorkTree,
             PullRequestRef ref) throws IOException {
-        workTreeBuilderFactory.builder(ref.getRepository()).commit(ref.getLatestCommit()).checkoutType(NONE)
-                .execute(checkoutTree -> {
-                    checkoutTree.builder().reset().hard().build().call();
-                    Path sourcePath;
-                    try {
-                        sourcePath = (Path) checkoutTree.getClass().getMethod("getPath").invoke(checkoutTree);
-                    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                        throw new IllegalStateException(e);
-                    }
-                    for (String directory : directoriesToTemplate) {
-                        template(event.getPullRequest().getToRef().getRepository(), sourcePath.resolve(directory),
-                                targetWorkTree, directory);
-                    }
-                    return "";
-                });
+        for (String directory : directoriesToTemplate) {
+            Path contentDir = Files.createTempDirectory(storageService.getTempDir(), "content-");
+            try {
+                List<GitFile> files = targetWorkTree.builder().lsTree().tree(ref.getLatestCommit()).path(directory)
+                        .recursive(true).build(new LsTreeCommandOutputHandler()).call();
+                for (GitFile file : files) {
+                    Path targetFile = contentDir.resolve(file.getFilename().substring(directory.length() + 1));
+                    MoreFiles.mkdir(targetFile.getParent());
+                    targetWorkTree.builder().catFile().pretty().object(file.getObjectId())
+                            .build(new WriteToFileCommandOutputHandler(targetFile)).call();
+                }
+                template(event.getPullRequest().getToRef().getRepository(), contentDir, targetWorkTree, directory);
+            } finally {
+                MoreFiles.deleteQuietly(contentDir);
+            }
+        }
         targetWorkTree.builder().commit().author(event.getUser()).message(toolName() + " template").build().call();
     }
 
@@ -162,6 +169,20 @@ abstract class AbstractTemplater {
             MoreFiles.deleteQuietly(cacheDir);
             MoreFiles.deleteQuietly(outputDir);
         }
+    }
+
+    protected CommandLine buildCommandLine(String executable, String... arguments) {
+        CommandLine commandLine = new CommandLine(executable);
+        stream(arguments).forEach(commandLine::addArgument);
+        return commandLine;
+    }
+
+    protected void execute(CommandLine command, Map<String, String> environment, OutputStream stdOut, OutputStream stdErr)
+            throws ExecuteException, IOException {
+        DefaultExecutor executor = new DefaultExecutor();
+        executor.setWatchdog(new ExecuteWatchdog(30_000));
+        executor.setStreamHandler(new PumpStreamHandler(stdOut, stdErr));
+        executor.execute(command, environment);
     }
 
     protected abstract Iterable<String> additionalConfigurations(Repository repository, Path directory) throws IOException;
