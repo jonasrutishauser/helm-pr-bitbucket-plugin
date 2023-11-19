@@ -74,10 +74,10 @@ public class HelmfileTemplater extends AbstractTemplater {
         } catch (ExecuteException e) {
             stdOut.reset();
         }
-        String result = stdOut.toString(UTF_8);
-        if (result.isBlank() && stdErr.size() > 0) {
+        String result = stdOut.toString(UTF_8.name());
+        if (result.isEmpty() && stdErr.size() > 0) {
             targetWorkTree.mkdir(targetFile.getParent().toString());
-            targetWorkTree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(stdErr.toString(UTF_8)));
+            targetWorkTree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(stdErr.toString(UTF_8.name())));
             targetWorkTree.builder().add().path(targetFile.toString()).build().call();
         } else {
             targetWorkTree.mkdir(targetFile.getParent().toString());
@@ -99,7 +99,7 @@ public class HelmfileTemplater extends AbstractTemplater {
         } catch (ExecuteException e) {
             Path targetFile = targetFolder.resolve("error.txt");
             targetWorkTree.mkdir(targetFile.getParent().toString());
-            targetWorkTree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(stdErr.toString(UTF_8)));
+            targetWorkTree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(stdErr.toString(UTF_8.name())));
             targetWorkTree.builder().add().path(targetFile.toString()).build().call();
             return;
         }

@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.util.Map;
 import java.util.Objects;
@@ -138,7 +139,7 @@ public class HelmConfiguration {
         if (binaryFile == null) {
             return "";
         }
-        if ((binaryFile.contains("/") || binaryFile.contains("\\")) && !Files.exists(Path.of(binaryFile))) {
+        if ((binaryFile.contains("/") || binaryFile.contains("\\")) && !Files.exists(Paths.get(binaryFile))) {
             return "";
         }
         CommandLine commandLine = new CommandLine(binaryFile);
