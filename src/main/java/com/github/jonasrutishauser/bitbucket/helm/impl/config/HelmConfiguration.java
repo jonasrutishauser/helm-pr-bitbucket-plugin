@@ -268,6 +268,7 @@ public class HelmConfiguration {
                     Files.copy(binaryStream, binary, REPLACE_EXISTING);
                     MoreFiles.setPermissions(new SetFilePermissionRequest.Builder(binary).ownerPermission(EXECUTE)
                             .ownerPermission(READ).ownerPermission(WRITE).build());
+                    Files.setLastModifiedTime(binary, getLastModifiedOfEmbedded(name));
                 } catch (IOException e) {
                     LOGGER.warn("failed to copy embedded " + name + " binary", e);
                 }
@@ -293,12 +294,16 @@ public class HelmConfiguration {
 
     private boolean needsToExtract(String name, Path binary) {
         try {
-            return !Files.exists(binary) || Files.getLastModifiedTime(binary).compareTo(FileTime
-                    .fromMillis(getClass().getResource("/binaries/" + name).openConnection().getLastModified())) < 0;
+            return !Files.exists(binary)
+                    || Files.getLastModifiedTime(binary).compareTo(getLastModifiedOfEmbedded(name)) < 0;
         } catch (IOException e) {
             LOGGER.warn("failed to compare extracted binary", e);
             return true;
         }
+    }
+
+    private FileTime getLastModifiedOfEmbedded(String name) throws IOException {
+        return FileTime.fromMillis(getClass().getResource("/binaries/" + name).openConnection().getLastModified());
     }
 
     private boolean getBooleanValue(String key, Scope scope, boolean defaultValue) {
