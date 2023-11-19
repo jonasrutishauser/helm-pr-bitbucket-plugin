@@ -53,6 +53,11 @@ public class HelmfileTemplater extends AbstractTemplater {
     }
 
     @Override
+    protected String markerFilename() {
+        return "helmfile.yaml";
+    }
+
+    @Override
     protected Iterable<String> additionalConfigurations(Repository repository, Path directory) throws IOException {
         return stream(configuration.getHelmfileEnvironments(repository).split("\n")).map(String::trim)
                 .collect(toList());

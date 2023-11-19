@@ -50,6 +50,11 @@ public class HelmTemplater extends AbstractTemplater {
     }
 
     @Override
+    protected String markerFilename() {
+        return "Chart.yaml";
+    }
+
+    @Override
     protected Iterable<String> additionalConfigurations(Repository repository, Path chartDir) throws IOException {
         Path testValuesDirectory = chartDir.resolve(configuration.getTestValuesDirectory(repository));
         if (Files.isDirectory(testValuesDirectory)) {

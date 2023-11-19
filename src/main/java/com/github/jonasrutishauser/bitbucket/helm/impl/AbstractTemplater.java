@@ -85,6 +85,8 @@ abstract class AbstractTemplater {
         scmCommandBuilder.updateRef().delete(getRefName(pullRequest)).build().call();
     }
 
+    protected abstract String markerFilename();
+
     protected abstract String toolName();
 
     private String[] addTemplated(PullRequestEvent event, Set<String> directoriesToTemplate, GitWorkTree workTree)

@@ -3,9 +3,11 @@ package com.github.jonasrutishauser.bitbucket.helm.impl;
 import static com.atlassian.bitbucket.content.ChangeType.DELETE;
 import static com.atlassian.bitbucket.content.ContentTreeNode.Type.FILE;
 import static com.atlassian.bitbucket.content.ContentTreeNode.Type.SUBMODULE;
+import static org.apache.commons.lang3.StringUtils.capitalize;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.TreeSet;
@@ -44,21 +46,18 @@ public class PrEventListener {
     private final PullRequestService prService;
     private final NavBuilder navBuilder;
     private final CommentService commentService;
-    private final HelmTemplater helmTemplater;
-    private final HelmfileTemplater helmfileTemplater;
+    private final List<AbstractTemplater> templaters;
     private final PluginUser pluginUser;
 
     @Inject
     public PrEventListener(@ComponentImport ContentService contentService,
             @ComponentImport PullRequestService prService, @ComponentImport NavBuilder navBuilder,
-            @ComponentImport CommentService commentService, HelmTemplater helmTemplater,
-            HelmfileTemplater helmfileTemplater, PluginUser pluginUser) {
+            @ComponentImport CommentService commentService, List<AbstractTemplater> templaters, PluginUser pluginUser) {
         this.contentService = contentService;
         this.prService = prService;
         this.navBuilder = navBuilder;
         this.commentService = commentService;
-        this.helmTemplater = helmTemplater;
-        this.helmfileTemplater = helmfileTemplater;
+        this.templaters = templaters;
         this.pluginUser = pluginUser;
     }
 
@@ -74,61 +73,46 @@ public class PrEventListener {
 
     @EventListener
     public void onPrDeleted(PullRequestDeletedEvent event) {
-        removeHelmDiffReference(event);
+        removeDiffReference(event);
     }
 
     @EventListener
     public void onPrMerged(PullRequestMergedEvent event) {
-        removeHelmDiffReference(event);
+        removeDiffReference(event);
     }
 
     @EventListener
     public void onPrDeclined(PullRequestDeclinedEvent event) {
-        removeHelmDiffReference(event);
+        removeDiffReference(event);
     }
 
     private void updateHelmDiff(PullRequestEvent event) {
-        if (helmTemplater.isActive(event.getPullRequest().getToRef().getRepository())) {
-            Set<String> helmCharts = getAffectedHelmCharts(event.getPullRequest());
-            if (!helmCharts.isEmpty()) {
-                LOGGER.debug("Helm charts detected: {}", helmCharts);
-                addHelmDiff(event, helmCharts);
-            }
-            Set<String> helmfileDirectories = getAffectedHelmfileDirectories(event.getPullRequest());
-            if (!helmfileDirectories.isEmpty()) {
-                LOGGER.debug("helmfile directories detected: {}", helmfileDirectories);
-                addHelmfileDiff(event, helmfileDirectories);
+        for (AbstractTemplater templater : templaters) {
+            if (templater.isActive(event.getPullRequest().getToRef().getRepository())) {
+                Set<String> directories = getAffectedDirectories(event.getPullRequest(), templater.markerFilename());
+                if (!directories.isEmpty()) {
+                    LOGGER.debug("{} directories detected: {}", templater.toolName(), directories);
+                    addDiff(event, directories, templater);
+                }
             }
         }
     }
 
-    private void removeHelmDiffReference(PullRequestEvent event) {
-        helmTemplater.removeReference(event.getPullRequest());
-    }
-
-    private void addHelmDiff(PullRequestEvent event, Set<String> helmCharts) {
-        String[] refs = helmTemplater.addTemplatedCommits(event, helmCharts);
-        if (refs != null && refs.length > 1 && prStillExists(event.getPullRequest())) {
-            pluginUser.impersonating("add pr comment")
-                    .withPermission(event.getPullRequest().getToRef().getRepository(), Permission.REPO_READ).call(
-                            () -> commentService
-                                    .addComment(new AddCommentRequest.Builder(event.getPullRequest(),
-                                            String.format("Helm template diff generated ([view changes](%s))",
-                                                    getPullRequestDiffUrl(event.getPullRequest(), refs[0], refs[1])))
-                                                            .build()));
+    private void removeDiffReference(PullRequestEvent event) {
+        for (AbstractTemplater templater : templaters) {
+            templater.removeReference(event.getPullRequest());
         }
     }
 
-    private void addHelmfileDiff(PullRequestEvent event, Set<String> helmfileDirectories) {
-        String[] refs = helmfileTemplater.addTemplatedCommits(event, helmfileDirectories);
+    private void addDiff(PullRequestEvent event, Set<String> directories, AbstractTemplater templater) {
+        String[] refs = templater.addTemplatedCommits(event, directories);
         if (refs != null && refs.length > 1 && prStillExists(event.getPullRequest())) {
             pluginUser.impersonating("add pr comment")
-                    .withPermission(event.getPullRequest().getToRef().getRepository(), Permission.REPO_READ).call(
-                            () -> commentService
-                                    .addComment(new AddCommentRequest.Builder(event.getPullRequest(),
-                                            String.format("Helmfile template diff generated ([view changes](%s))",
-                                                    getPullRequestDiffUrl(event.getPullRequest(), refs[0], refs[1])))
-                                                            .build()));
+                    .withPermission(event.getPullRequest().getToRef().getRepository(), Permission.REPO_READ)
+                    .call(() -> commentService.addComment(new AddCommentRequest.Builder(event.getPullRequest(),
+                            String.format("%s template diff generated ([view changes](%s))",
+                                    capitalize(templater.toolName()),
+                                    getPullRequestDiffUrl(event.getPullRequest(), refs[0], refs[1]))).build()));
         }
     }
 
@@ -149,15 +133,7 @@ public class PrEventListener {
 
     private String getPullRequestDiffUrl(PullRequest pullRequest, String commit, String since) {
         return navBuilder.repo(pullRequest.getToRef().getRepository()).pullRequest(pullRequest.getId()).commit(commit)
-                .since(since).buildRelative();
-    }
-
-    private Set<String> getAffectedHelmCharts(PullRequest pullRequest) {
-        return getAffectedDirectories(pullRequest, "Chart.yaml");
-    }
-
-    private Set<String> getAffectedHelmfileDirectories(PullRequest pullRequest) {
-        return getAffectedDirectories(pullRequest, "helmfile.yaml");
+                .since(since).buildAbsolute();
     }
 
     private Set<String> getAffectedDirectories(PullRequest pullRequest, String filenameToSearch) {
