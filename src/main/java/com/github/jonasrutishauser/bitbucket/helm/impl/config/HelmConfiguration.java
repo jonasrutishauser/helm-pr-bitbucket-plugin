@@ -218,6 +218,10 @@ public class HelmConfiguration {
         return getSettingsValue(CONFIGURATION_KEYS[3], scope, "");
     }
 
+    public long getExecutionTimeout() {
+        return 600_000;
+    }
+
     void setConfiguration(Scope scope, Map<String, String[]> values) {
         if (scope.isProject()) {
             setConfiguration(PROJECT_KEY_PREFIX + scope.getProject().getId(), values);

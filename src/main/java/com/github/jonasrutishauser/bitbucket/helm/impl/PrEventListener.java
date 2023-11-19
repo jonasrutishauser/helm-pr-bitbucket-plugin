@@ -3,7 +3,6 @@ package com.github.jonasrutishauser.bitbucket.helm.impl;
 import static com.atlassian.bitbucket.content.ChangeType.DELETE;
 import static com.atlassian.bitbucket.content.ContentTreeNode.Type.FILE;
 import static com.atlassian.bitbucket.content.ContentTreeNode.Type.SUBMODULE;
-import static org.apache.commons.lang3.StringUtils.capitalize;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -18,8 +17,6 @@ import javax.inject.Named;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.atlassian.bitbucket.comment.AddCommentRequest;
-import com.atlassian.bitbucket.comment.CommentService;
 import com.atlassian.bitbucket.content.AbstractChangeCallback;
 import com.atlassian.bitbucket.content.Change;
 import com.atlassian.bitbucket.content.ContentService;
@@ -30,13 +27,14 @@ import com.atlassian.bitbucket.event.pull.PullRequestEvent;
 import com.atlassian.bitbucket.event.pull.PullRequestMergedEvent;
 import com.atlassian.bitbucket.event.pull.PullRequestOpenedEvent;
 import com.atlassian.bitbucket.event.pull.PullRequestRescopedEvent;
-import com.atlassian.bitbucket.nav.NavBuilder;
-import com.atlassian.bitbucket.permission.Permission;
 import com.atlassian.bitbucket.pull.PullRequest;
 import com.atlassian.bitbucket.pull.PullRequestChangesRequest;
 import com.atlassian.bitbucket.pull.PullRequestService;
 import com.atlassian.event.api.EventListener;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
+import com.atlassian.scheduler.SchedulerService;
+import com.atlassian.scheduler.SchedulerServiceException;
+import com.atlassian.scheduler.config.JobConfig;
 
 @Named
 public class PrEventListener {
@@ -44,21 +42,17 @@ public class PrEventListener {
 
     private final ContentService contentService;
     private final PullRequestService prService;
-    private final NavBuilder navBuilder;
-    private final CommentService commentService;
+    private final SchedulerService scheduler;
     private final List<AbstractTemplater> templaters;
-    private final PluginUser pluginUser;
 
     @Inject
     public PrEventListener(@ComponentImport ContentService contentService,
-            @ComponentImport PullRequestService prService, @ComponentImport NavBuilder navBuilder,
-            @ComponentImport CommentService commentService, List<AbstractTemplater> templaters, PluginUser pluginUser) {
+            @ComponentImport PullRequestService prService, @ComponentImport SchedulerService scheduler,
+            List<AbstractTemplater> templaters) {
         this.contentService = contentService;
         this.prService = prService;
-        this.navBuilder = navBuilder;
-        this.commentService = commentService;
+        this.scheduler = scheduler;
         this.templaters = templaters;
-        this.pluginUser = pluginUser;
     }
 
     @EventListener
@@ -92,7 +86,12 @@ public class PrEventListener {
                 Set<String> directories = getAffectedDirectories(event.getPullRequest(), templater.markerFilename());
                 if (!directories.isEmpty()) {
                     LOGGER.debug("{} directories detected: {}", templater.toolName(), directories);
-                    addDiff(event, directories, templater);
+                    try {
+                        scheduler.scheduleJobWithGeneratedId(JobConfig.forJobRunnerKey(AddDiffJobRunner.JOB_RUNNER_KEY)
+                                .withParameters(AddDiffJobRunner.getParameters(event, directories, templater)));
+                    } catch (SchedulerServiceException e) {
+                        LOGGER.warn("Failed to schedule diff generation", e);
+                    }
                 }
             }
         }
@@ -102,38 +101,6 @@ public class PrEventListener {
         for (AbstractTemplater templater : templaters) {
             templater.removeReference(event.getPullRequest());
         }
-    }
-
-    private void addDiff(PullRequestEvent event, Set<String> directories, AbstractTemplater templater) {
-        String[] refs = templater.addTemplatedCommits(event, directories);
-        if (refs != null && refs.length > 1 && prStillExists(event.getPullRequest())) {
-            pluginUser.impersonating("add pr comment")
-                    .withPermission(event.getPullRequest().getToRef().getRepository(), Permission.REPO_READ)
-                    .call(() -> commentService.addComment(new AddCommentRequest.Builder(event.getPullRequest(),
-                            String.format("%s template diff generated ([view changes](%s))",
-                                    capitalize(templater.toolName()),
-                                    getPullRequestDiffUrl(event.getPullRequest(), refs[0], refs[1]))).build()));
-        }
-    }
-
-    /**
-     * There is a bug report, that when a comment is added to a PR after it got deleted, the database will be corrupt.
-     * Since it takes a while to template all the stuff this is a risk. To reduce it, we check that the PR still exists
-     * just before adding the comment. There is still a race condition, but it is much less likely to happen now.
-     *
-     * @see <a href="https://jira.atlassian.com/browse/BSERV-12953">Bug Report</a>
-     *
-     * @param pullRequest the pull request to check
-     * @return true if it still exists
-     */
-    private boolean prStillExists(PullRequest pullRequest) {
-        PullRequest pr = this.prService.getById(pullRequest.getToRef().getRepository().getId(), pullRequest.getId());
-        return pr != null;
-    }
-
-    private String getPullRequestDiffUrl(PullRequest pullRequest, String commit, String since) {
-        return navBuilder.repo(pullRequest.getToRef().getRepository()).pullRequest(pullRequest.getId()).commit(commit)
-                .since(since).buildAbsolute();
     }
 
     private Set<String> getAffectedDirectories(PullRequest pullRequest, String filenameToSearch) {

@@ -7,10 +7,10 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
@@ -20,7 +20,6 @@ import org.apache.commons.exec.PumpStreamHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.atlassian.bitbucket.event.pull.PullRequestEvent;
 import com.atlassian.bitbucket.pull.PullRequest;
 import com.atlassian.bitbucket.pull.PullRequestRef;
 import com.atlassian.bitbucket.repository.RefChange;
@@ -69,11 +68,11 @@ abstract class AbstractTemplater {
         return configuration.isActive(repository);
     }
 
-    public String[] addTemplatedCommits(PullRequestEvent event, Set<String> directoriesToTemplate) {
-        GitWorkTreeBuilder builder = workTreeBuilderFactory.builder(event.getPullRequest().getToRef().getRepository())
+    public String[] addTemplatedCommits(PullRequest pullRequest, Collection<String> directoriesToTemplate) {
+        GitWorkTreeBuilder builder = workTreeBuilderFactory.builder(pullRequest.getToRef().getRepository())
                 .commit(null);
         try {
-            return builder.execute(workTree -> addTemplated(event, directoriesToTemplate, workTree));
+            return builder.execute(workTree -> addTemplated(pullRequest, directoriesToTemplate, workTree));
         } catch (IOException e) {
             LOGGER.warn("Failed to add " + toolName() + " templated files", e);
         }
@@ -89,29 +88,29 @@ abstract class AbstractTemplater {
 
     protected abstract String toolName();
 
-    private String[] addTemplated(PullRequestEvent event, Set<String> directoriesToTemplate, GitWorkTree workTree)
+    private String[] addTemplated(PullRequest pullRequest, Collection<String> directoriesToTemplate, GitWorkTree workTree)
             throws IOException {
         // template old version
-        template(event, directoriesToTemplate, workTree, event.getPullRequest().getToRef());
+        template(pullRequest, directoriesToTemplate, workTree, pullRequest.getToRef());
 
         // template new version
         workTree.builder().rm().path(".").recursive(true).build().call();
-        template(event, directoriesToTemplate, workTree, event.getPullRequest().getFromRef());
+        template(pullRequest, directoriesToTemplate, workTree, pullRequest.getFromRef());
 
-        String refName = getRefName(event.getPullRequest());
+        String refName = getRefName(pullRequest);
         // this api wont allow to create arbitrary refs
         // (we need to rename this ref afterwards)
         workTree.publish(new PublishGitWorkTreeParameters.Builder(NO_HOOKS).branch(refName, null).build());
         // rename the ref
         GitScmCommandBuilder scmCommandBuilder = commandBuilderFactory
-                .builder(event.getPullRequest().getToRef().getRepository());
+                .builder(pullRequest.getToRef().getRepository());
         scmCommandBuilder.updateRef().set(refName, "refs/heads/" + refName).deref(false).build().call();
         scmCommandBuilder.updateRef().delete("refs/heads/" + refName).build().call();
 
         return workTree.builder().revList().limit(2).rev("HEAD").build(new RevListCommandOutputHandler()).call();
     }
 
-    private void template(PullRequestEvent event, Set<String> directoriesToTemplate, GitWorkTree targetWorkTree,
+    private void template(PullRequest pullRequest, Collection<String> directoriesToTemplate, GitWorkTree targetWorkTree,
             PullRequestRef ref) throws IOException {
         for (String directory : directoriesToTemplate) {
             Path contentDir = Files.createTempDirectory(storageService.getTempDir(), "content-");
@@ -124,12 +123,12 @@ abstract class AbstractTemplater {
                     targetWorkTree.builder().catFile().pretty().object(file.getObjectId())
                             .build(new WriteToFileCommandOutputHandler(targetFile)).call();
                 }
-                template(event.getPullRequest().getToRef().getRepository(), contentDir, targetWorkTree, directory);
+                template(pullRequest.getToRef().getRepository(), contentDir, targetWorkTree, directory);
             } finally {
                 MoreFiles.deleteQuietly(contentDir);
             }
         }
-        targetWorkTree.builder().commit().author(event.getUser()).message(toolName() + " template").build().call();
+        targetWorkTree.builder().commit().author(pullRequest.getAuthor().getUser()).message(toolName() + " template").build().call();
     }
 
     private String getRefName(PullRequest pullRequest) {
@@ -182,7 +181,7 @@ abstract class AbstractTemplater {
     protected void execute(CommandLine command, Map<String, String> environment, OutputStream stdOut, OutputStream stdErr)
             throws ExecuteException, IOException {
         DefaultExecutor executor = new DefaultExecutor();
-        executor.setWatchdog(new ExecuteWatchdog(30_000));
+        executor.setWatchdog(new ExecuteWatchdog(configuration.getExecutionTimeout()));
         executor.setStreamHandler(new PumpStreamHandler(stdOut, stdErr));
         executor.execute(command, environment);
     }
