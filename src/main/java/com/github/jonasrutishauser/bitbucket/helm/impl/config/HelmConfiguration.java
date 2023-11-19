@@ -143,6 +143,11 @@ public class HelmConfiguration {
         }
         CommandLine commandLine = new CommandLine(binaryFile);
         commandLine.addArgument("version");
+        if ("helmfile".equals(binary)) {
+            commandLine.addArgument("--output=short");
+        } else if ("helm".equals(binary)) {
+            commandLine.addArgument("--short");
+        }
         DefaultExecutor executor = new DefaultExecutor();
         executor.setWatchdog(new ExecuteWatchdog(10_000));
         ByteArrayOutputStream output = new ByteArrayOutputStream();
