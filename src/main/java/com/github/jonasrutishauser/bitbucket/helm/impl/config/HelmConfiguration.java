@@ -8,13 +8,13 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Stream.concat;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -22,11 +22,6 @@ import java.util.stream.Stream;
 import javax.inject.Inject;
 import javax.inject.Named;
 
-import org.apache.commons.exec.CommandLine;
-import org.apache.commons.exec.DefaultExecutor;
-import org.apache.commons.exec.ExecuteException;
-import org.apache.commons.exec.ExecuteWatchdog;
-import org.apache.commons.exec.PumpStreamHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +37,9 @@ import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
+import com.ongres.process.FluentProcess;
+import com.ongres.process.FluentProcessBuilder;
+import com.ongres.process.Output;
 
 @Named
 public class HelmConfiguration {
@@ -142,26 +140,25 @@ public class HelmConfiguration {
         if ((binaryFile.contains("/") || binaryFile.contains("\\")) && !Files.exists(Paths.get(binaryFile))) {
             return "";
         }
-        CommandLine commandLine = new CommandLine(binaryFile);
-        commandLine.addArgument("version");
+        FluentProcessBuilder processBuilder = FluentProcess.builder(binaryFile, "version");
         if ("helmfile".equals(binary)) {
-            commandLine.addArgument("--output=short");
+            processBuilder = processBuilder.arg("--output=short");
         } else if ("helm".equals(binary)) {
-            commandLine.addArgument("--short");
+            processBuilder = processBuilder.arg("--short");
         }
-        DefaultExecutor executor = new DefaultExecutor();
-        executor.setWatchdog(new ExecuteWatchdog(10_000));
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        PumpStreamHandler psh = new PumpStreamHandler(output);
-        executor.setStreamHandler(psh);
         try {
-            executor.execute(commandLine);
-        } catch (ExecuteException e) {
-            LOGGER.warn("failed to determine version", e);
-        } catch (IOException e) {
-            // ignore
+            Output out = processBuilder.noStderr() //
+                    .start() //
+                    .withTimeout(Duration.ofSeconds(10)) //
+                    .tryGet();
+            if (out.exception().isPresent()) {
+                LOGGER.warn("failed to determine version", out.exception().get());
+            }
+            return out.output().orElse("");
+        } catch (RuntimeException e) {
+            // executable not available
+            return "";
         }
-        return output.toString();
     }
 
     public String getHelmBinary() {

@@ -2,11 +2,11 @@ package com.github.jonasrutishauser.bitbucket.helm.impl.config;
 
 import static com.github.jonasrutishauser.bitbucket.helm.impl.config.ScopeService.scope;
 import static java.util.Collections.emptyList;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -14,9 +14,9 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Map;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.atlassian.bitbucket.event.project.ProjectDeletedEvent;
 import com.atlassian.bitbucket.event.repository.RepositoryDeletedEvent;
@@ -28,15 +28,15 @@ import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import com.google.common.collect.ImmutableMap;
 
-public class HelmConfigurationTest {
+class HelmConfigurationTest {
 
     private final PluginSettings settings = new MapPluginSettings();
     private final StorageService storageService = mock(StorageService.class);
 
     private HelmConfiguration testee;
 
-    @Before
-    public void createTestee() {
+    @BeforeEach
+    void createTestee() {
         PluginSettingsFactory settingsFactory = mock(PluginSettingsFactory.class);
         when(settingsFactory.createGlobalSettings()).thenReturn(settings);
         when(storageService.getHomeDir()).thenReturn(Paths.get("target", "test-home"));
@@ -44,8 +44,8 @@ public class HelmConfigurationTest {
         testee = new HelmConfiguration(settingsFactory, storageService);
     }
 
-    @After
-    public void cleanupHome() {
+    @AfterEach
+    void cleanupHome() {
         MoreFiles.deleteQuietly(storageService.getHomeDir());
         MoreFiles.deleteQuietly(storageService.getSharedHomeDir());
     }

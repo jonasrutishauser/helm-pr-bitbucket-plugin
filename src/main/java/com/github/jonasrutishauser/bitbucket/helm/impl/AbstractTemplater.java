@@ -1,22 +1,13 @@
 package com.github.jonasrutishauser.bitbucket.helm.impl;
 
-import static java.util.Arrays.stream;
-
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-import org.apache.commons.exec.CommandLine;
-import org.apache.commons.exec.DefaultExecutor;
-import org.apache.commons.exec.ExecuteException;
-import org.apache.commons.exec.ExecuteWatchdog;
-import org.apache.commons.exec.PumpStreamHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -170,20 +161,6 @@ abstract class AbstractTemplater {
             MoreFiles.deleteQuietly(cacheDir);
             MoreFiles.deleteQuietly(outputDir);
         }
-    }
-
-    protected CommandLine buildCommandLine(String executable, String... arguments) {
-        CommandLine commandLine = new CommandLine(executable);
-        stream(arguments).forEach(commandLine::addArgument);
-        return commandLine;
-    }
-
-    protected void execute(CommandLine command, Map<String, String> environment, OutputStream stdOut, OutputStream stdErr)
-            throws ExecuteException, IOException {
-        DefaultExecutor executor = new DefaultExecutor();
-        executor.setWatchdog(new ExecuteWatchdog(configuration.getExecutionTimeout()));
-        executor.setStreamHandler(new PumpStreamHandler(stdOut, stdErr));
-        executor.execute(command, environment);
     }
 
     protected abstract Iterable<String> additionalConfigurations(Repository repository, Path directory) throws IOException;

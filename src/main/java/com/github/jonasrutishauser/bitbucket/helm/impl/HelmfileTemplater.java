@@ -8,22 +8,19 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.inject.Inject;
 import javax.inject.Named;
-
-import org.apache.commons.exec.CommandLine;
-import org.apache.commons.exec.ExecuteException;
 
 import com.atlassian.bitbucket.repository.Repository;
 import com.atlassian.bitbucket.scm.git.GitWorkTreeBuilderFactory;
@@ -35,6 +32,11 @@ import com.atlassian.bitbucket.util.SetFilePermissionRequest;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.github.jonasrutishauser.bitbucket.helm.impl.config.HelmConfiguration;
 import com.google.common.collect.ImmutableMap;
+import com.ongres.process.FluentProcess;
+import com.ongres.process.FluentProcessBuilder;
+import com.ongres.process.Output;
+import com.ongres.process.ProcessException;
+import com.ongres.process.ProcessTimeoutException;
 
 @Named
 public class HelmfileTemplater extends AbstractTemplater {
@@ -66,23 +68,20 @@ public class HelmfileTemplater extends AbstractTemplater {
     @Override
     protected void templateSingleFile(Repository repository, Path directory, GitWorkTree targetWorkTree,
             Path targetFile, Path cacheDir, Optional<String> additionalConfiguration) throws IOException {
-        ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
-        ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
-        try {
-            execute(buildHelmfileCommand(directory, additionalConfiguration.orElse("default")),
-                    getHelmfileEnvironment(cacheDir), stdOut, stdErr);
-        } catch (ExecuteException e) {
-            stdOut.reset();
-        }
-        String result = stdOut.toString(UTF_8.name());
-        if (result.isEmpty() && stdErr.size() > 0) {
-            targetWorkTree.mkdir(targetFile.getParent().toString());
-            targetWorkTree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(stdErr.toString(UTF_8.name())));
-            targetWorkTree.builder().add().path(targetFile.toString()).build().call();
+        Output output = helmfileProcessBuilder(directory, additionalConfiguration.orElse("default")) //
+                .environment(getHelmfileEnvironment(cacheDir)) //
+                .start() //
+                .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
+                .tryGet();
+        if (output.exception().isPresent() || (!output.output().isPresent() && output.error().isPresent())) {
+            StringJoiner content = new StringJoiner(System.lineSeparator());
+            output.error().ifPresent(content::add);
+            output.exception().filter(ProcessTimeoutException.class::isInstance)
+                    .map(ProcessTimeoutException.class::cast)
+                    .ifPresent(exception -> content.add("timeout after " + exception.getTimeout()));
+            writeContent(targetWorkTree, targetFile, content.toString());
         } else {
-            targetWorkTree.mkdir(targetFile.getParent().toString());
-            targetWorkTree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(result));
-            targetWorkTree.builder().add().path(targetFile.toString()).build().call();
+            writeContent(targetWorkTree, targetFile, output.output().orElse(""));
         }
     }
 
@@ -90,18 +89,19 @@ public class HelmfileTemplater extends AbstractTemplater {
     protected void templateUseOutputDir(Repository repository, Path directory, GitWorkTree targetWorkTree,
             Path targetFolder, Path outputDir, Path cacheDir, Optional<String> additionalConfiguration)
             throws IOException {
-        ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
-        try {
-            execute( //
-                    buildHelmfileCommand(directory, additionalConfiguration.orElse("default"), "--output-dir-template",
-                            outputDir.toString() + "/{{ .Release.Name}}"), //
-                    getHelmfileEnvironment(cacheDir), new ByteArrayOutputStream(), stdErr);
-        } catch (ExecuteException e) {
-            Path targetFile = targetFolder.resolve("error.txt");
-            targetWorkTree.mkdir(targetFile.getParent().toString());
-            targetWorkTree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(stdErr.toString(UTF_8.name())));
-            targetWorkTree.builder().add().path(targetFile.toString()).build().call();
-            return;
+        String stdErr = "";
+        try (Stream<String> stdErrStream = helmfileProcessBuilder(directory, additionalConfiguration.orElse("default"), "--output-dir-template",
+                    outputDir.toString() + "/{{ .Release.Name }}") //
+                            .environment(getHelmfileEnvironment(cacheDir)) //
+                            .noStdout() //
+                            .start() //
+                            .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
+                            .streamStderr()) {
+            stdErr = stdErrStream.collect(Collectors.joining(System.lineSeparator()));
+        } catch (ProcessTimeoutException e) {
+            writeContent(targetWorkTree, targetFolder.resolve("error.txt"), "timeout after " + e.getTimeout());
+        } catch (ProcessException e) {
+            writeContent(targetWorkTree, targetFolder.resolve("error.txt"), stdErr);
         }
         for (Path path : (Iterable<Path>) Files.walk(outputDir).filter(Files::isRegularFile)::iterator) {
             Path relativePath = outputDir.relativize(path);
@@ -110,6 +110,12 @@ public class HelmfileTemplater extends AbstractTemplater {
             targetWorkTree.writeFrom(targetPath, UTF_8, () -> Files.newBufferedReader(path, UTF_8));
             targetWorkTree.builder().add().path(targetPath).build().call();
         }
+    }
+
+    private void writeContent(GitWorkTree targetWorkTree, Path targetFile, String content) throws IOException {
+        targetWorkTree.mkdir(targetFile.getParent().toString());
+        targetWorkTree.write(targetFile.toString(), UTF_8, writer -> writer.write(content));
+        targetWorkTree.builder().add().path(targetFile.toString()).build().call();
     }
 
     private Map<String, String> getHelmfileEnvironment(Path cacheDir) throws IOException {
@@ -125,13 +131,7 @@ public class HelmfileTemplater extends AbstractTemplater {
                         .ownerPermission(EXECUTE).ownerPermission(READ).ownerPermission(WRITE).build());
             }
         }
-        Path kustomizePath = MoreFiles.resolve(cacheDir, "bin", "kustomize");
-        if (!Files.isRegularFile(kustomizePath)) {
-            MoreFiles.mkdir(kustomizePath.getParent());
-            Files.copy(Paths.get(configuration.getKustomizeBinary()), kustomizePath, REPLACE_EXISTING);
-        }
         return ImmutableMap.<String, String>builder() //
-                .put("PATH", kustomizePath.getParent().toString() + File.pathSeparator + System.getenv("PATH")) //
                 .put("XDG_CACHE_HOME", cacheDir.resolve("helmfile-cache").toString()) //
                 .put("HELMFILE_TEMPDIR", cacheDir.resolve("helmfile-temp").toString()) //
                 .put("HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString()) //
@@ -140,16 +140,19 @@ public class HelmfileTemplater extends AbstractTemplater {
                 .build();
     }
 
-    private CommandLine buildHelmfileCommand(Path directory, String environment, String... additionalArgs) {
-        CommandLine commandLine = buildCommandLine( //
+    private FluentProcessBuilder helmfileProcessBuilder(Path directory, String environment, String... additionalArgs) {
+        FluentProcessBuilder processBuilder = FluentProcess.builder( //
                 configuration.getHelmfileBinary(), //
                 "-b", configuration.getHelmBinary(), //
+                "-k", configuration.getKustomizeBinary(), //
                 "-f", directory.toString(), //
                 "-e", environment, //
                 "-q", //
                 "template", //
                 "--include-crds");
-        commandLine.addArguments(additionalArgs);
-        return commandLine;
+        for (String additionalArg : additionalArgs) {
+            processBuilder = processBuilder.arg(additionalArg);
+        }
+        return processBuilder.dontCloseAfterLast();
     }
 }

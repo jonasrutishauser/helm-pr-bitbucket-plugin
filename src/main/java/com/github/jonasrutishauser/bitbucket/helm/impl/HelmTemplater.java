@@ -4,20 +4,19 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.StringJoiner;
+import java.util.stream.Stream;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 
-import org.apache.commons.exec.CommandLine;
-import org.apache.commons.exec.ExecuteException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +29,11 @@ import com.atlassian.bitbucket.util.MoreFiles;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.github.jonasrutishauser.bitbucket.helm.impl.config.HelmConfiguration;
 import com.google.common.collect.ImmutableMap;
+import com.ongres.process.FluentProcess;
+import com.ongres.process.FluentProcessBuilder;
+import com.ongres.process.Output;
+import com.ongres.process.ProcessException;
+import com.ongres.process.ProcessTimeoutException;
 
 @Named
 public class HelmTemplater extends AbstractTemplater {
@@ -71,53 +75,61 @@ public class HelmTemplater extends AbstractTemplater {
     @Override
     protected void templateSingleFile(Repository repository, Path chartDir, GitWorkTree targetWorktree, Path targetFile,
             Path cacheDir, Optional<String> testValueFile) throws IOException {
-        ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
-        try {
-            execute(buildCommandLine(configuration.getHelmBinary(), "dependency", "build", chartDir.toString()),
-                    getHelmEnvironment(cacheDir), new ByteArrayOutputStream(), stdErr);
-        } catch (ExecuteException e) {
-            LOGGER.warn("helm dependency build exited with {}: {}", e.getExitValue(), stdErr.toString());
+        StringJoiner error = new StringJoiner(System.lineSeparator());
+        try (Stream<String> stdErrStream = FluentProcess
+                .builder(configuration.getHelmBinary(), "dependency", "build", chartDir.toString()) //
+                .environment(getHelmEnvironment(cacheDir)) //
+                .noStdout() //
+                .start() //
+                .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
+                .streamStderr()) {
+            stdErrStream.forEach(error::add);
+        } catch (ProcessException e) {
+            LOGGER.warn("helm dependency build exited with {}: {}", e.getExitCode(), error.toString());
         }
-        ByteArrayOutputStream stdOut = new ByteArrayOutputStream();
-        try {
-            execute(buildHelmCommand(chartDir, getValues(repository, chartDir, cacheDir, testValueFile)),
-                    getHelmEnvironment(cacheDir), stdOut, stdErr);
-        } catch (ExecuteException e) {
-            stdOut.reset();
-        }
-        String result = stdOut.toString(UTF_8.name());
-        if (result.isEmpty() && stdErr.size() > 0) {
-            targetWorktree.mkdir(targetFile.getParent().toString());
-            targetWorktree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(stdErr.toString(UTF_8.name())));
-            targetWorktree.builder().add().path(targetFile.toString()).build().call();
+        Output output = helmProcessBuilder(chartDir, getValues(repository, chartDir, cacheDir, testValueFile)) //
+                .environment(getHelmEnvironment(cacheDir)) //
+                .start() //
+                .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
+                .tryGet();
+        output.error().ifPresent(error::add);
+        if (output.exception().isPresent() || (!output.output().isPresent() && error.length() > 0)) {
+            output.exception().filter(ProcessTimeoutException.class::isInstance)
+                    .map(ProcessTimeoutException.class::cast)
+                    .ifPresent(exception -> error.add("timeout after " + exception.getTimeout()));
+            writeContent(targetWorktree, targetFile, error.toString());
         } else {
-            targetWorktree.mkdir(targetFile.getParent().toString());
-            targetWorktree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(result));
-            targetWorktree.builder().add().path(targetFile.toString()).build().call();
+            writeContent(targetWorktree, targetFile, output.output().orElse(""));
         }
     }
 
     @Override
     protected void templateUseOutputDir(Repository repository, Path chartDir, GitWorkTree targetWorktree,
             Path targetFolder, Path outputDir, Path cacheDir, Optional<String> testValueFile) throws IOException {
-        ByteArrayOutputStream stdErr = new ByteArrayOutputStream();
-        try {
-            execute(buildCommandLine(configuration.getHelmBinary(), "dependency", "build", chartDir.toString()),
-                    getHelmEnvironment(cacheDir), new ByteArrayOutputStream(), stdErr);
-        } catch (ExecuteException e) {
-            LOGGER.warn("helm dependency build exited with {}: {}", e.getExitValue(), stdErr.toString());
+        StringJoiner stdErr = new StringJoiner(System.lineSeparator());
+        try (Stream<String> stdErrStream = FluentProcess
+                .builder(configuration.getHelmBinary(), "dependency", "build", chartDir.toString()) //
+                .environment(getHelmEnvironment(cacheDir)) //
+                .noStdout() //
+                .start() //
+                .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
+                .streamStderr()) {
+            stdErrStream.forEach(stdErr::add);
+        } catch (ProcessException e) {
+            LOGGER.warn("helm dependency build exited with {}: {}", e.getExitCode(), stdErr.toString());
         }
-        try {
-            execute( //
-                    buildHelmCommand(chartDir, getValues(repository, chartDir, cacheDir, testValueFile), "--output-dir",
-                            outputDir.toString()), //
-                    getHelmEnvironment(cacheDir), new ByteArrayOutputStream(), stdErr);
-        } catch (ExecuteException e) {
-            Path targetFile = targetFolder.resolve("error.txt");
-            targetWorktree.mkdir(targetFile.getParent().toString());
-            targetWorktree.writeFrom(targetFile.toString(), UTF_8, () -> new StringReader(stdErr.toString(UTF_8.name())));
-            targetWorktree.builder().add().path(targetFile.toString()).build().call();
-            return;
+        try (Stream<String> stdErrStream = helmProcessBuilder(chartDir, getValues(repository, chartDir, cacheDir, testValueFile), "--output-dir",
+                outputDir.toString()) //
+                        .environment(getHelmEnvironment(cacheDir)) //
+                        .noStdout() //
+                        .start() //
+                        .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
+                        .streamStderr()) {
+            stdErrStream.forEach(stdErr::add);
+        } catch (ProcessTimeoutException e) {
+            writeContent(targetWorktree, targetFolder.resolve("error.txt"), "timeout after " + e.getTimeout());
+        } catch (ProcessException e) {
+            writeContent(targetWorktree, targetFolder.resolve("error.txt"), stdErr.toString());
         }
         for (Path path : (Iterable<Path>) Files.walk(outputDir).filter(Files::isRegularFile)::iterator) {
             Path relativePath = outputDir.relativize(path);
@@ -127,6 +139,12 @@ public class HelmTemplater extends AbstractTemplater {
             targetWorktree.writeFrom(targetPath, UTF_8, () -> Files.newBufferedReader(path, UTF_8));
             targetWorktree.builder().add().path(targetPath).build().call();
         }
+    }
+
+    private void writeContent(GitWorkTree targetWorkTree, Path targetFile, String content) throws IOException {
+        targetWorkTree.mkdir(targetFile.getParent().toString());
+        targetWorkTree.write(targetFile.toString(), UTF_8, writer -> writer.write(content));
+        targetWorkTree.builder().add().path(targetFile.toString()).build().call();
     }
 
     private List<Path> getValues(Repository repository, Path chartDir, Path cacheDir, Optional<String> testValueFile)
@@ -146,14 +164,22 @@ public class HelmTemplater extends AbstractTemplater {
                 "HELM_CONFIG_HOME", cacheDir.resolve("helm-config").toString(), //
                 "HELM_DATA_HOME", cacheDir.resolve("helm-data").toString());
     }
-
-    private CommandLine buildHelmCommand(Path chartDir, List<Path> values, String... additionalArgs) {
-        CommandLine commandLine = buildCommandLine(configuration.getHelmBinary(), "template", "release-name", chartDir.toString(), "--include-crds");
+    
+    private FluentProcessBuilder helmProcessBuilder(Path chartDir, List<Path> values, String... additionalArgs) {
+        FluentProcessBuilder processBuilder = FluentProcess.builder( //
+                configuration.getHelmBinary(), //
+                "template", //
+                "release-name", //
+                chartDir.toString(), //
+                "--include-crds");
         for (Path file : values) {
-            commandLine.addArgument("--values");
-            commandLine.addArgument(file.toString());
+            processBuilder = processBuilder //
+                    .arg("--values") //
+                    .arg(file.toString());
         }
-        commandLine.addArguments(additionalArgs);
-        return commandLine;
+        for (String additionalArg : additionalArgs) {
+            processBuilder = processBuilder.arg(additionalArg);
+        }
+        return processBuilder.dontCloseAfterLast();
     }
 }
