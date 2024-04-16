@@ -75,7 +75,7 @@ abstract class AbstractTemplater {
         scmCommandBuilder.updateRef().delete(getRefName(pullRequest)).build().call();
     }
 
-    protected abstract String markerFilename();
+    protected abstract Collection<String> markerFilenames();
 
     protected abstract String toolName();
 

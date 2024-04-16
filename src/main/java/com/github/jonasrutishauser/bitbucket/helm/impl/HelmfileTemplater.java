@@ -5,6 +5,7 @@ import static com.atlassian.bitbucket.util.FilePermission.READ;
 import static com.atlassian.bitbucket.util.FilePermission.WRITE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toList;
 
@@ -13,6 +14,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -41,6 +43,8 @@ import com.ongres.process.ProcessTimeoutException;
 @Named
 public class HelmfileTemplater extends AbstractTemplater {
 
+    private static final Collection<String> MARKER_FILENAMES = asList("helmfile.yaml", "helmfile.yaml.gotmpl");
+
     @Inject
     public HelmfileTemplater(HelmConfiguration configuration,
             @ComponentImport GitWorkTreeBuilderFactory workTreeBuilderFactory,
@@ -55,8 +59,8 @@ public class HelmfileTemplater extends AbstractTemplater {
     }
 
     @Override
-    protected String markerFilename() {
-        return "helmfile.yaml";
+    protected Collection<String> markerFilenames() {
+        return MARKER_FILENAMES;
     }
 
     @Override

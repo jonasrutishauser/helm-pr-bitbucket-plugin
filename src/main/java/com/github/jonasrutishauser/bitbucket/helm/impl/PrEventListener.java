@@ -5,6 +5,7 @@ import static com.atlassian.bitbucket.content.ContentTreeNode.Type.FILE;
 import static com.atlassian.bitbucket.content.ContentTreeNode.Type.SUBMODULE;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -83,7 +84,7 @@ public class PrEventListener {
     private void updateHelmDiff(PullRequestEvent event) {
         for (AbstractTemplater templater : templaters) {
             if (templater.isActive(event.getPullRequest().getToRef().getRepository())) {
-                Set<String> directories = getAffectedDirectories(event.getPullRequest(), templater.markerFilename());
+                Set<String> directories = getAffectedDirectories(event.getPullRequest(), templater.markerFilenames());
                 if (!directories.isEmpty()) {
                     LOGGER.debug("{} directories detected: {}", templater.toolName(), directories);
                     try {
@@ -103,7 +104,7 @@ public class PrEventListener {
         }
     }
 
-    private Set<String> getAffectedDirectories(PullRequest pullRequest, String filenameToSearch) {
+    private Set<String> getAffectedDirectories(PullRequest pullRequest, Collection<String> filenamesToSearch) {
         Set<String> chartDirs = new TreeSet<>();
         // get all changed directories
         prService.streamChanges(new PullRequestChangesRequest.Builder(pullRequest).withComments(false).build(),
@@ -124,12 +125,13 @@ public class PrEventListener {
                         return true;
                     }
                 });
-        // only keep directories which contain filenameToSearch
+        // only keep directories which contain any filenamesToSearch
         for (Iterator<String> iterator = chartDirs.iterator(); iterator.hasNext();) {
             String dir = iterator.next();
             try {
-                if (FILE != contentService.getType(pullRequest.getFromRef().getRepository(),
-                        pullRequest.getFromRef().getId(), dir + "/" + filenameToSearch)) {
+                if (filenamesToSearch.stream().allMatch(
+                        filenameToSearch -> FILE != contentService.getType(pullRequest.getFromRef().getRepository(),
+                                pullRequest.getFromRef().getId(), dir + "/" + filenameToSearch))) {
                     iterator.remove();
                 }
             } catch (NoSuchPathException e) {

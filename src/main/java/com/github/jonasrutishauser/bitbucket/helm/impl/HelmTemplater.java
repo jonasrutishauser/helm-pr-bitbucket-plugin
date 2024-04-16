@@ -3,11 +3,13 @@ package com.github.jonasrutishauser.bitbucket.helm.impl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singleton;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,8 +56,8 @@ public class HelmTemplater extends AbstractTemplater {
     }
 
     @Override
-    protected String markerFilename() {
-        return "Chart.yaml";
+    protected Collection<String> markerFilenames() {
+        return singleton("Chart.yaml");
     }
 
     @Override
