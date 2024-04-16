@@ -66,7 +66,7 @@ public class HelmfileTemplater extends AbstractTemplater {
     @Override
     protected Iterable<String> additionalConfigurations(Repository repository, Path directory) throws IOException {
         return stream(configuration.getHelmfileEnvironments(repository).split("\n")).map(String::trim)
-                .collect(toList());
+                .filter(s -> !s.isEmpty()).collect(toList());
     }
 
     @Override
