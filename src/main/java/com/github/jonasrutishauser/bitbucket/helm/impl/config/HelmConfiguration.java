@@ -142,7 +142,8 @@ public class HelmConfiguration {
         }
         FluentProcessBuilder processBuilder = FluentProcess.builder(binaryFile, "version");
         if ("helmfile".equals(binary)) {
-            processBuilder = processBuilder.arg("--output=short");
+            processBuilder = processBuilder.arg("--output=short") //
+                    .environment("HELMFILE_UPGRADE_NOTICE_DISABLED", "true");
         } else if ("helm".equals(binary)) {
             processBuilder = processBuilder.arg("--short");
         }
