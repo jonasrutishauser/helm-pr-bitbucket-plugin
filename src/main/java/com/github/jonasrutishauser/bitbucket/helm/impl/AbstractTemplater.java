@@ -98,7 +98,7 @@ abstract class AbstractTemplater {
         scmCommandBuilder.updateRef().set(refName, "refs/heads/" + refName).deref(false).build().call();
         scmCommandBuilder.updateRef().delete("refs/heads/" + refName).build().call();
 
-        return workTree.builder().revList().limit(2).rev("HEAD").build(new RevListCommandOutputHandler()).call();
+        return workTree.builder().revList().limit(2).rev("HEAD").build(new LinesCommandOutputHandler()).call();
     }
 
     private void template(PullRequest pullRequest, Collection<String> directoriesToTemplate, GitWorkTree targetWorkTree,
@@ -119,7 +119,11 @@ abstract class AbstractTemplater {
                 MoreFiles.deleteQuietly(contentDir);
             }
         }
-        targetWorkTree.builder().commit().author(pullRequest.getAuthor().getUser()).message(toolName() + " template").build().call();
+        String[] changes = targetWorkTree.builder().status().porcelain(true).build(new LinesCommandOutputHandler()).call();
+        LOGGER.debug("git status: {}", (Object) changes);
+        if (changes.length > 0) {
+            targetWorkTree.builder().commit().author(pullRequest.getAuthor().getUser()).message(toolName() + " template").build().call();
+        }
     }
 
     private String getRefName(PullRequest pullRequest) {

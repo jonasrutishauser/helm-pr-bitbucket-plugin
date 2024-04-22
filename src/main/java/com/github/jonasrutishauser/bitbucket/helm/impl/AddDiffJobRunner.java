@@ -90,13 +90,17 @@ public class AddDiffJobRunner implements JobRunner {
 
     private void addDiff(PullRequest pullRequest, Collection<String> directories, AbstractTemplater templater) {
         String[] refs = templater.addTemplatedCommits(pullRequest, directories);
-        if (refs != null && refs.length > 1 && prStillExists(pullRequest)) {
+        if (refs != null && refs.length > 0 && prStillExists(pullRequest)) {
+            String message;
+            if (refs.length > 1) {
+                message = String.format("%s template diff generated ([view changes](%s))",
+                        capitalize(templater.toolName()), getPullRequestDiffUrl(pullRequest, refs[0], refs[1]));
+            } else {
+                message = String.format("%s template generated no diff", capitalize(templater.toolName()));
+            }
             pluginUser.impersonating("add pr comment")
                     .withPermission(pullRequest.getToRef().getRepository(), Permission.REPO_READ)
-                    .call(() -> commentService.addComment(new AddCommentRequest.Builder(pullRequest,
-                            String.format("%s template diff generated ([view changes](%s))",
-                                    capitalize(templater.toolName()),
-                                    getPullRequestDiffUrl(pullRequest, refs[0], refs[1]))).build()));
+                    .call(() -> commentService.addComment(new AddCommentRequest.Builder(pullRequest, message).build()));
         }
     }
 

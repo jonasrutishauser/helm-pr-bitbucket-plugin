@@ -12,18 +12,18 @@ import java.util.List;
 import com.atlassian.bitbucket.scm.CommandOutputHandler;
 import com.atlassian.bitbucket.scm.Watchdog;
 
-class RevListCommandOutputHandler implements CommandOutputHandler<String[]> {
-    private List<String> revs;
+class LinesCommandOutputHandler implements CommandOutputHandler<String[]> {
+    private List<String> lines;
 
     @Override
     public String[] getOutput() {
-        return revs.toArray(new String[revs.size()]);
+        return lines.toArray(new String[lines.size()]);
     }
 
     @Override
     public void process(InputStream output) throws IOException {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(output, UTF_8))) {
-            revs = reader.lines().collect(toList());
+            lines = reader.lines().collect(toList());
         }
     }
 
