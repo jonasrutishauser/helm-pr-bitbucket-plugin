@@ -6,7 +6,6 @@ import static com.atlassian.bitbucket.content.ContentTreeNode.Type.SUBMODULE;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.StringJoiner;
@@ -106,6 +105,7 @@ public class PrEventListener {
 
     private Set<String> getAffectedDirectories(PullRequest pullRequest, Collection<String> filenamesToSearch) {
         Set<String> chartDirs = new TreeSet<>();
+        chartDirs.add(".");
         // get all changed directories
         prService.streamChanges(new PullRequestChangesRequest.Builder(pullRequest).withComments(false).build(),
                 new AbstractChangeCallback() {
@@ -125,19 +125,26 @@ public class PrEventListener {
                         return true;
                     }
                 });
+        LOGGER.debug("candidate directories; {}", chartDirs);
         // only keep directories which contain any filenamesToSearch
-        for (Iterator<String> iterator = chartDirs.iterator(); iterator.hasNext();) {
-            String dir = iterator.next();
-            try {
-                if (filenamesToSearch.stream().allMatch(
-                        filenameToSearch -> FILE != contentService.getType(pullRequest.getFromRef().getRepository(),
-                                pullRequest.getFromRef().getId(), dir + "/" + filenameToSearch))) {
-                    iterator.remove();
-                }
-            } catch (NoSuchPathException e) {
-                iterator.remove();
-            }
-        }
+        chartDirs.removeIf(dir -> !containsFile(pullRequest, dir, filenamesToSearch));
+        LOGGER.debug("chart directories: {}", chartDirs);
         return chartDirs;
     }
+
+    private boolean containsFile(PullRequest pullRequest, String dir, Collection<String> filenamesToSearch) {
+        for (String filenameToSearch : filenamesToSearch) {
+            String file = ".".equals(dir) ? filenameToSearch : dir + "/" + filenameToSearch;
+            try {
+                if (FILE == contentService.getType(pullRequest.getFromRef().getRepository(),
+                        pullRequest.getFromRef().getId(), file)) {
+                    return true;
+                }
+            } catch (NoSuchPathException e) {
+                // ignore
+            }
+        }
+        return false;
+    }
+    
 }
