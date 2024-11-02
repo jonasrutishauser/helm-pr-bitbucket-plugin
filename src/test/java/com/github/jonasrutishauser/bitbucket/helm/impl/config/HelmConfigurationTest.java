@@ -26,7 +26,6 @@ import com.atlassian.bitbucket.server.StorageService;
 import com.atlassian.bitbucket.util.MoreFiles;
 import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
-import com.google.common.collect.ImmutableMap;
 
 class HelmConfigurationTest {
 
@@ -321,13 +320,12 @@ class HelmConfigurationTest {
 
     @Test
     public void getRepoConfiguration_overwritten() {
-        testee.setConfiguration(scope(createRepository(13, 42)), ImmutableMap.<String, String[]>builder() //
-                .put("active", new String[] {"false"}) //
-                .put("overwritten", new String[] {"on"}) //
-                .put("default-values", new String[] {"values"}) //
-                .put("test-values-directory", new String[] {"some-dir"}) //
-                .put("template-mode", new String[] {"SINGLE_FILE"}) //
-                .build());
+        testee.setConfiguration(scope(createRepository(13, 42)), Map.of( //
+                "active", new String[] {"false"}, //
+                "overwritten", new String[] {"on"}, //
+                "default-values", new String[] {"values"}, //
+                "test-values-directory", new String[] {"some-dir"}, //
+                "template-mode", new String[] {"SINGLE_FILE"}));
 
         Map<String, Object> configuration = testee.getConfiguration(scope(createRepository(13, 42)));
 

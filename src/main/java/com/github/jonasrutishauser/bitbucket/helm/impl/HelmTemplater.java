@@ -30,7 +30,6 @@ import com.atlassian.bitbucket.server.StorageService;
 import com.atlassian.bitbucket.util.MoreFiles;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.github.jonasrutishauser.bitbucket.helm.impl.config.HelmConfiguration;
-import com.google.common.collect.ImmutableMap;
 import com.ongres.process.FluentProcess;
 import com.ongres.process.FluentProcessBuilder;
 import com.ongres.process.Output;
@@ -162,7 +161,7 @@ public class HelmTemplater extends AbstractTemplater {
     }
 
     private Map<String, String> getHelmEnvironment(Path cacheDir) {
-        return ImmutableMap.of("HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString(), //
+        return Map.of("HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString(), //
                 "HELM_CONFIG_HOME", cacheDir.resolve("helm-config").toString(), //
                 "HELM_DATA_HOME", cacheDir.resolve("helm-data").toString());
     }

@@ -17,7 +17,6 @@ import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.auth.LoginUriProvider;
 import com.atlassian.soy.renderer.SoyException;
 import com.atlassian.soy.renderer.SoyTemplateRenderer;
-import com.google.common.collect.ImmutableMap;
 
 @Named
 public class RepositoryConfiguration extends HttpServlet {
@@ -50,11 +49,11 @@ public class RepositoryConfiguration extends HttpServlet {
 
         if (scope.isRepository()) {
             render(response, "plugin.helmPr.repositoryConfigurationPage", //
-                    ImmutableMap.of("repository", scope.getRepository(), //
+                    Map.of("repository", scope.getRepository(), //
                             "configuration", configuration.getConfiguration(scope)));
         } else {
             render(response, "plugin.helmPr.projectConfigurationPage", //
-                    ImmutableMap.of("project", scope.getProject(), //
+                    Map.of("project", scope.getProject(), //
                             "configuration", configuration.getConfiguration(scope)));
         }
     }

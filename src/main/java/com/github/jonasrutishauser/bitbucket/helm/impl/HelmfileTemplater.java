@@ -33,7 +33,6 @@ import com.atlassian.bitbucket.util.MoreFiles;
 import com.atlassian.bitbucket.util.SetFilePermissionRequest;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.github.jonasrutishauser.bitbucket.helm.impl.config.HelmConfiguration;
-import com.google.common.collect.ImmutableMap;
 import com.ongres.process.FluentProcess;
 import com.ongres.process.FluentProcessBuilder;
 import com.ongres.process.Output;
@@ -135,13 +134,11 @@ public class HelmfileTemplater extends AbstractTemplater {
                         .ownerPermission(EXECUTE).ownerPermission(READ).ownerPermission(WRITE).build());
             }
         }
-        return ImmutableMap.<String, String>builder() //
-                .put("XDG_CACHE_HOME", cacheDir.resolve("helmfile-cache").toString()) //
-                .put("HELMFILE_TEMPDIR", cacheDir.resolve("helmfile-temp").toString()) //
-                .put("HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString()) //
-                .put("HELM_CONFIG_HOME", cacheDir.resolve("helm-config").toString()) //
-                .put("HELM_DATA_HOME", cacheDir.resolve("helm-data").toString()) //
-                .build();
+        return Map.of("XDG_CACHE_HOME", cacheDir.resolve("helmfile-cache").toString(), //
+                "HELMFILE_TEMPDIR", cacheDir.resolve("helmfile-temp").toString(), //
+                "HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString(), //
+                "HELM_CONFIG_HOME", cacheDir.resolve("helm-config").toString(), //
+                "HELM_DATA_HOME", cacheDir.resolve("helm-data").toString());
     }
 
     private FluentProcessBuilder helmfileProcessBuilder(Path directory, String environment, String... additionalArgs) {

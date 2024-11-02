@@ -6,6 +6,7 @@ import static com.atlassian.bitbucket.util.FilePermission.WRITE;
 import static com.github.jonasrutishauser.bitbucket.helm.impl.config.ScopeService.scope;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Stream.concat;
 
 import java.io.IOException;
@@ -15,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -35,8 +37,6 @@ import com.atlassian.event.api.EventListener;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.ongres.process.FluentProcess;
 import com.ongres.process.FluentProcessBuilder;
 import com.ongres.process.Output;
@@ -64,34 +64,34 @@ public class HelmConfiguration {
     }
 
     Map<String, Object> getGlobalConfiguration() {
-        return ImmutableMap.<String, Object>builder() //
-                .put("helmBinaryType", getBinaryType("helm")) //
-                .put("systemVersion", getVersion("helm", BinaryType.SYSTEM)) //
-                .put("embeddedVersion", getVersion("helm", BinaryType.EMBEDDED)) //
-                .put("uploadedVersion", getVersion("helm", BinaryType.UPLOADED)) //
-                .put("helmfileBinaryType", getBinaryType("helmfile")) //
-                .put("helmfileSystemVersion", getVersion("helmfile", BinaryType.SYSTEM)) //
-                .put("helmfileEmbeddedVersion", getVersion("helmfile", BinaryType.EMBEDDED)) //
-                .put("helmfileUploadedVersion", getVersion("helmfile", BinaryType.UPLOADED)) //
-                .put("kustomizeBinaryType", getBinaryType("kustomize")) //
-                .put("kustomizeSystemVersion", getVersion("kustomize", BinaryType.SYSTEM)) //
-                .put("kustomizeEmbeddedVersion", getVersion("kustomize", BinaryType.EMBEDDED)) //
-                .put("kustomizeUploadedVersion", getVersion("kustomize", BinaryType.UPLOADED)) //
-                .putAll(getConfiguration((Scope) null)) //
-                .build();
+        Map<String, Object> configuration = new HashMap<>();
+        configuration.put("helmBinaryType", getBinaryType("helm"));
+        configuration.put("systemVersion", getVersion("helm", BinaryType.SYSTEM));
+        configuration.put("embeddedVersion", getVersion("helm", BinaryType.EMBEDDED));
+        configuration.put("uploadedVersion", getVersion("helm", BinaryType.UPLOADED));
+        configuration.put("helmfileBinaryType", getBinaryType("helmfile"));
+        configuration.put("helmfileSystemVersion", getVersion("helmfile", BinaryType.SYSTEM));
+        configuration.put("helmfileEmbeddedVersion", getVersion("helmfile", BinaryType.EMBEDDED));
+        configuration.put("helmfileUploadedVersion", getVersion("helmfile", BinaryType.UPLOADED));
+        configuration.put("kustomizeBinaryType", getBinaryType("kustomize"));
+        configuration.put("kustomizeSystemVersion", getVersion("kustomize", BinaryType.SYSTEM));
+        configuration.put("kustomizeEmbeddedVersion", getVersion("kustomize", BinaryType.EMBEDDED));
+        configuration.put("kustomizeUploadedVersion", getVersion("kustomize", BinaryType.UPLOADED));
+        configuration.putAll(getConfiguration((Scope) null));
+        return unmodifiableMap(configuration);
     }
 
     Map<String, Object> getConfiguration(Scope scope) {
-        Builder<String, Object> builder = ImmutableMap.<String, Object>builder() //
-                .put("defaultValues", getDefaultValues(scope)) //
-                .put("testValuesDirectory", getTestValuesDirectory(scope)) //
-                .put("templateMode", getTemplateMode(scope)) //
-                .put("helmfileEnvironments", getHelmfileEnvironments(scope)) //
-                .put("active", getActive(scope));
+        Map<String, Object> configuration = new HashMap<>();
+        configuration.put("defaultValues", getDefaultValues(scope));
+        configuration.put("testValuesDirectory", getTestValuesDirectory(scope));
+        configuration.put("templateMode", getTemplateMode(scope));
+        configuration.put("helmfileEnvironments", getHelmfileEnvironments(scope));
+        configuration.put("active", getActive(scope));
         if (scope != null) {
-            builder.put("overwritten", Boolean.valueOf(isOverwritten(scope)));
+            configuration.put("overwritten", Boolean.valueOf(isOverwritten(scope)));
         }
-        return builder.build();
+        return unmodifiableMap(configuration);
     }
 
     public boolean isActive(Repository repository) {
