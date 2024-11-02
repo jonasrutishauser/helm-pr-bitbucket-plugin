@@ -12,10 +12,11 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up JDK 17
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v4
         with:
+          distribution: 'zulu'
           java-version: 17
       - name: Setup Git
         run: >
@@ -33,16 +34,15 @@ jobs:
       - name: Release
         run: >
           mvn -V -gs $GITHUB_WORKSPACE/git-settings.xml -B -e release:clean release:prepare && 
-          echo "::set-output name=RELEASED_VERSION::$(grep scm.tag= release.properties | cut -d'=' -f2 | cut -c2-)"
+          echo "RELEASED_VERSION=$(grep scm.tag= release.properties | cut -d'=' -f2 | cut -c2-)" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ github.token }}
         id: release
       - name: Create Release Entry
-        uses: ncipollo/release-action@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag: v${{ steps.release.outputs.RELEASED_VERSION }}
+          tag_name: v${{ steps.release.outputs.RELEASED_VERSION }}
           name: Helm PR Bitbucket Plugin ${{ steps.release.outputs.RELEASED_VERSION }}
           body: ${{ github.event.inputs.release-body }}
-          artifacts: target/*.obr
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          files: target/*.obr
+          token: ${{ github.token }}
