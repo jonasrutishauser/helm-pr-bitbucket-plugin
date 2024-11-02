@@ -16,7 +16,6 @@ import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 
-import com.atlassian.bitbucket.AuthorisationException;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.sal.api.websudo.WebSudoManager;
 import com.atlassian.sal.api.websudo.WebSudoSessionException;
