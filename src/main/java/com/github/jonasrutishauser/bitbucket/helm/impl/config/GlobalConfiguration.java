@@ -46,7 +46,7 @@ public class GlobalConfiguration extends HttpServlet {
 
             render(response, "plugin.helmPr.globalConfigurationPage",
                     Map.of("configuration", configuration.getGlobalConfiguration()));
-        } catch (AuthorisationException e) {
+        } catch (WebSudoSessionException e) {
             webSudoManager.enforceWebSudoProtection(request, response);
             return;
         }
