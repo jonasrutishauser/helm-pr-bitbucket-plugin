@@ -21,6 +21,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      security-events: write
     steps:
       - uses: actions/checkout@v4
         if: ${{ github.event_name != 'pull_request_target' }}
@@ -47,7 +50,7 @@ jobs:
           java-version: 17
           cache: 'maven'
       - name: Build with Maven
-        run: mvn -B -V -e clean verify
+        run: mvn -B -V -e -Dstyle.color=always clean verify
       - name: Publish Test Report
         if: ${{ (success() || failure()) && github.event_name == 'pull_request' }}
         uses: scacap/action-surefire-report@v1
@@ -56,7 +59,7 @@ jobs:
       - name: Unittest Coverage
         if: ${{ github.event_name != 'release' && github.event_name != 'pull_request_target' }}
         run: >
-          mvn -B jacoco:report
+          mvn -B -Dstyle.color=always jacoco:report
       - name: Unittest Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -64,7 +67,7 @@ jobs:
       - name: Integrationstest Coverage
         if: ${{ github.event_name != 'release' && github.event_name != 'pull_request_target' }}
         run: >
-          mvn -B jacoco:report-integration
+          mvn -B -Dstyle.color=always jacoco:report-integration@report-integration
       - name: Integrationstest Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -80,7 +83,7 @@ jobs:
             export GITHUB_EVENT_NAME=pull_request; 
             export GITHUB_REF=refs/pull/$GITHUB_PULL_REQUEST/merge; 
           fi && 
-          mvn -B -e jacoco:report jacoco:report-integration@report-integration sonar:sonar -Dsonar.organization=jonasrutishauser-github
+          mvn -B -e -Dstyle.color=always jacoco:report jacoco:report-integration@report-integration sonar:sonar -Dsonar.organization=jonasrutishauser-github
         env:
           GITHUB_PULL_REQUEST: ${{ github.event.number }}
           GITHUB_TOKEN: ${{ github.token }}
