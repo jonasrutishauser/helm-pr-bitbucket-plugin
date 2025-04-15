@@ -2,7 +2,7 @@
 
 if [[ "$1" == "view" ]]
 then
-  cat "$2"
+  sed -n '/^sops:/q;p' "$2"
 else
   exit 1
 fi

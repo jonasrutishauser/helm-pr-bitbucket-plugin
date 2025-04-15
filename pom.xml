@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-		<groupId>io.github.jonasrutishauser</groupId>
-		<artifactId>parent</artifactId>
-		<version>22</version>
+        <groupId>io.github.jonasrutishauser</groupId>
+        <artifactId>parent</artifactId>
+        <version>25</version>
     </parent>
 
     <groupId>com.github.jonasrutishauser.bitbucket</groupId>
@@ -26,14 +26,14 @@
         <gpg.skip>true</gpg.skip>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <amps.version>9.1.6</amps.version>
-        <bitbucket.version>9.3.0</bitbucket.version>
+        <amps.version>9.2.4</amps.version>
+        <bitbucket.version>9.4.5</bitbucket.version>
         <bitbucket.data.version>${bitbucket.version}</bitbucket.data.version>
         <!-- This property ensures consistency between the key in atlassian-plugin.xml and the OSGi bundle's key. -->
         <atlassian.plugin.key>${project.groupId}.${project.artifactId}</atlassian.plugin.key>
         <atlassian.spring.scanner.version>5.1.0</atlassian.spring.scanner.version>
         <javax.inject.version>1</javax.inject.version>
-        <plugin.testrunner.version>2.0.6</plugin.testrunner.version>
+        <plugin.testrunner.version>2.0.10</plugin.testrunner.version>
     </properties>
 
     <dependencyManagement>
@@ -59,10 +59,10 @@
             <artifactId>bitbucket-api</artifactId>
             <scope>provided</scope>
             <exclusions>
-            	<exclusion>
-            		<groupId>com.google.guava</groupId>
-            		<artifactId>guava</artifactId>
-            	</exclusion>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -70,10 +70,10 @@
             <artifactId>bitbucket-git-api</artifactId>
             <scope>provided</scope>
             <exclusions>
-            	<exclusion>
-            		<groupId>com.google.guava</groupId>
-            		<artifactId>guava</artifactId>
-            	</exclusion>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -81,11 +81,11 @@
             <artifactId>atlassian-scheduler-api</artifactId>
             <scope>provided</scope>
         </dependency>
-		<dependency>
-			<groupId>com.ongres</groupId>
-			<artifactId>fluent-process</artifactId>
-			<version>1.0.1</version>
-		</dependency>
+        <dependency>
+            <groupId>com.ongres</groupId>
+            <artifactId>fluent-process</artifactId>
+            <version>1.0.1</version>
+        </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -131,11 +131,11 @@
             <scope>provided</scope>
         </dependency>
 
-		<dependency>
-			<groupId>com.google.guava</groupId>
-			<artifactId>guava</artifactId>
-			<scope>test</scope>
-		</dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>com.atlassian.plugins</groupId>
             <artifactId>atlassian-plugins-osgi-testrunner</artifactId>
@@ -145,13 +145,13 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.11.3</version>
+            <version>5.12.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.11.3</version>
+            <version>5.12.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -167,7 +167,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.26.3</version>
+            <version>3.27.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -179,72 +179,64 @@
 
     <build>
         <plugins>
-        	<plugin>
-        		<groupId>com.googlecode.maven-download-plugin</groupId>
-        		<artifactId>download-maven-plugin</artifactId>
-        		<version>1.6.8</version>
-        		<executions>
-        			<execution>
-        				<id>get-helm-binary</id>
-        				<phase>generate-resources</phase>
-        				<goals>
-        					<goal>wget</goal>
-        				</goals>
-        				<configuration>
-        					<url>https://get.helm.sh/helm-v3.16.2-linux-amd64.tar.gz</url>
-        					<unpack>true</unpack>
-        					<outputDirectory>${project.build.outputDirectory}/binaries</outputDirectory>
-        					<sha256>9318379b847e333460d33d291d4c088156299a26cd93d570a7f5d0c36e50b5bb</sha256>
-        					<fileMappers>
-        						<org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
-        							<pattern>.*/(?!helm).*</pattern>
-        							<replacement>.</replacement>
-        						</org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
-        						<org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
-        							<pattern>.*/helm</pattern>
-        							<replacement>helm</replacement>
-        						</org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
-        					</fileMappers>
-        				</configuration>
-        			</execution>
-        			<execution>
-        				<id>get-helmfile-binary</id>
-        				<goals>
-        					<goal>wget</goal>
-        				</goals>
-        				<configuration>
-        					<url>https://github.com/helmfile/helmfile/releases/download/v0.169.1/helmfile_0.169.1_linux_amd64.tar.gz</url>
-        					<unpack>true</unpack>
-        					<outputDirectory>${project.build.outputDirectory}/binaries</outputDirectory>
-        					<sha256>c3c18ad2fbc83a5440f09f79a9dfa8df2a288595766655fe79b34dd902ba8c6d</sha256>
-        					<fileMappers>
-        						<org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
-        							<pattern>^(?!helmfile).*</pattern>
-        							<replacement>.</replacement>
-        						</org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
-        					</fileMappers>
-        				</configuration>
-        			</execution>
-        			<execution>
-        				<id>get-kustomize-binary</id>
-        				<goals>
-        					<goal>wget</goal>
-        				</goals>
-        				<configuration>
-        					<url>https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.5.0/kustomize_v5.5.0_linux_amd64.tar.gz</url>
-        					<unpack>true</unpack>
-        					<sha256>6703a3a70a0c47cf0b37694030b54f1175a9dfeb17b3818b623ed58b9dbc2a77</sha256>
-        					<outputDirectory>${project.build.outputDirectory}/binaries</outputDirectory>
-        					<fileMappers>
-        						<org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
-        							<pattern>^(?!kustomize).*</pattern>
-        							<replacement>.</replacement>
-        						</org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
-        					</fileMappers>
-        				</configuration>
-        			</execution>
-        		</executions>
-        	</plugin>
+            <plugin>
+                <groupId>io.github.download-maven-plugin</groupId>
+                <artifactId>download-maven-plugin</artifactId>
+                <version>2.0.0</version>
+                <executions>
+                    <execution>
+                        <id>get-helm-binary</id>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://get.helm.sh/helm-v3.17.3-linux-amd64.tar.gz</url>
+                            <unpack>true</unpack>
+                            <outputDirectory>${project.build.outputDirectory}/binaries</outputDirectory>
+                            <sha256>ee88b3c851ae6466a3de507f7be73fe94d54cbf2987cbaa3d1a3832ea331f2cd</sha256>
+                            <includes>
+                                <include>*/helm</include>
+                            </includes>
+                            <fileMappers>
+                                <org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
+                                    <pattern>.*/helm</pattern>
+                                    <replacement>helm</replacement>
+                                </org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
+                            </fileMappers>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>get-helmfile-binary</id>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://github.com/helmfile/helmfile/releases/download/v0.171.0/helmfile_0.171.0_linux_amd64.tar.gz</url>
+                            <unpack>true</unpack>
+                            <outputDirectory>${project.build.outputDirectory}/binaries</outputDirectory>
+                            <sha256>c190fd305307ea3fd41a91a95b3341100a1ede239cf32e225564a1ece286fb1b</sha256>
+                            <includes>
+                                <include>helmfile</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>get-kustomize-binary</id>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.6.0/kustomize_v5.6.0_linux_amd64.tar.gz</url>
+                            <unpack>true</unpack>
+                            <sha256>54e4031ddc4e7fc59e408da29e7c646e8e57b8088c51b84b3df0864f47b5148f</sha256>
+                            <outputDirectory>${project.build.outputDirectory}/binaries</outputDirectory>
+                            <includes>
+                                <include>kustomize</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>com.atlassian.maven.plugins</groupId>
                 <artifactId>bitbucket-maven-plugin</artifactId>
@@ -261,9 +253,9 @@
                     </products>
                     <instructions>
                         <Atlassian-Plugin-Key>${atlassian.plugin.key}</Atlassian-Plugin-Key>
-						<!-- Add package to export here -->
+                        <!-- Add package to export here -->
                         <Export-Package>com.github.jonasrutishauser.bitbucket.helm.api,</Export-Package>
-						<!-- Ensure plugin is Spring powered -->
+                        <!-- Ensure plugin is Spring powered -->
                         <Spring-Context>*</Spring-Context>
                     </instructions>
                 </configuration>
@@ -285,19 +277,19 @@
                 </configuration>
             </plugin>
             <plugin>
-            	<artifactId>maven-enforcer-plugin</artifactId>
-				<executions>
-					<execution>
-						<configuration>
-							<rules>
-								<requireNoRepositories>
-									<banRepositories>false</banRepositories>
-									<banPluginRepositories>false</banPluginRepositories>
-								</requireNoRepositories>
-							</rules>
-						</configuration>
-					</execution>
-				</executions>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <configuration>
+                            <rules>
+                                <requireNoRepositories>
+                                    <banRepositories>false</banRepositories>
+                                    <banPluginRepositories>false</banPluginRepositories>
+                                </requireNoRepositories>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
@@ -332,10 +324,10 @@
         </pluginRepository>
     </pluginRepositories>
 
-	<scm>
-		<connection>${scm.connection}</connection>
-		<developerConnection>${scm.developerConnection}</developerConnection>
-		<url>${scm_url}</url>
-		<tag>HEAD</tag>
-	</scm>
+    <scm>
+        <connection>${scm.connection}</connection>
+        <developerConnection>${scm.developerConnection}</developerConnection>
+        <url>${scm_url}</url>
+        <tag>HEAD</tag>
+    </scm>
 </project>
