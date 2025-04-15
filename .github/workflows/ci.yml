@@ -64,6 +64,7 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Integrationstest Coverage
         if: ${{ github.event_name != 'release' && github.event_name != 'pull_request_target' }}
         run: >
@@ -72,6 +73,7 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           flags: integration
+          token: ${{ secrets.CODECOV_TOKEN }}
       - name: Perform CodeQL Analysis
         if: ${{ github.event_name != 'release' && github.event_name != 'pull_request_target' }}
         uses: github/codeql-action/analyze@v3
@@ -89,6 +91,11 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
+      - name: Upload test results to Codecov
+        if: ${{ matrix.java == '21' && github.event_name != 'release' && github.event_name != 'pull_request_target' }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
   update-pr:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'sonar') }}
