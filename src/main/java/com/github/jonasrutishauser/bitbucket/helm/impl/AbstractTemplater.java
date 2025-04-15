@@ -8,6 +8,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import javax.annotation.Nonnull;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,12 +34,12 @@ abstract class AbstractTemplater {
 
     private static final GitWorkTreeRepositoryHookInvoker NO_HOOKS = new GitWorkTreeRepositoryHookInvoker() {
         @Override
-        public boolean preUpdate(GitWorkTree workTree, List<RefChange> refChanges) {
+        public boolean preUpdate(@Nonnull GitWorkTree workTree, @Nonnull List<RefChange> refChanges) {
             return true;
         }
 
         @Override
-        public void postUpdate(GitWorkTree workTree, List<RefChange> refChanges) {
+        public void postUpdate(@Nonnull GitWorkTree workTree, @Nonnull List<RefChange> refChanges) {
             // don't call hooks
         }
     };
@@ -106,10 +108,12 @@ abstract class AbstractTemplater {
         for (String directory : directoriesToTemplate) {
             Path contentDir = Files.createTempDirectory(storageService.getTempDir(), "content-");
             try {
-                List<GitFile> files = targetWorkTree.builder().lsTree().tree(ref.getLatestCommit()).path(directory)
+                @SuppressWarnings("null")
+                @Nonnull List<GitFile> files = targetWorkTree.builder().lsTree().tree(ref.getLatestCommit()).path(directory)
                         .recursive(true).build(new LsTreeCommandOutputHandler()).call();
                 for (GitFile file : files) {
-                    Path targetFile = contentDir.resolve(file.getFilename().substring(directory.length() + 1));
+                    Path targetFile = contentDir
+                            .resolve(file.getFilename().substring(".".equals(directory) ? 0 : directory.length() + 1));
                     MoreFiles.mkdir(targetFile.getParent());
                     targetWorkTree.builder().catFile().pretty().object(file.getObjectId())
                             .build(new WriteToFileCommandOutputHandler(targetFile)).call();
@@ -119,7 +123,8 @@ abstract class AbstractTemplater {
                 MoreFiles.deleteQuietly(contentDir);
             }
         }
-        String[] changes = targetWorkTree.builder().status().porcelain(true).build(new LinesCommandOutputHandler()).call();
+        @SuppressWarnings("null")
+        @Nonnull String[] changes = targetWorkTree.builder().status().porcelain(true).build(new LinesCommandOutputHandler()).call();
         LOGGER.debug("git status: {}", (Object) changes);
         if (changes.length > 0) {
             targetWorkTree.builder().commit().author(pullRequest.getAuthor().getUser()).message(toolName() + " template").build().call();

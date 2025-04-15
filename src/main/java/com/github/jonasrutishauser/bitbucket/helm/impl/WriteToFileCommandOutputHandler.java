@@ -7,6 +7,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import javax.annotation.Nonnull;
+
 import com.atlassian.bitbucket.scm.CommandOutputHandler;
 import com.atlassian.bitbucket.scm.Watchdog;
 
@@ -18,12 +20,12 @@ class WriteToFileCommandOutputHandler implements CommandOutputHandler<Void> {
     }
 
     @Override
-    public void process(InputStream output) throws IOException {
+    public void process(@Nonnull InputStream output) throws IOException {
         Files.copy(output, targetFile, REPLACE_EXISTING);
     }
 
     @Override
-    public void setWatchdog(Watchdog watchdog) {
+    public void setWatchdog(@Nonnull Watchdog watchdog) {
         // ignore
     }
 

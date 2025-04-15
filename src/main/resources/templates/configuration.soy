@@ -32,7 +32,7 @@
 <head>
     <meta name="decorator" content="bitbucket.repository.settings">
     <meta name="projectKey" content="{$repository.project.key}">
-	<meta name="repositorySlug" content="{$repository.slug}">
+    <meta name="repositorySlug" content="{$repository.slug}">
     <meta name="activeTab" content="helm-pr-repo-configuration">
     <title>Helm PR Configuration for {$repository.project.name} / {$repository.name}</title>
     {webResourceManager_requireResource('com.github.jonasrutishauser.bitbucket.helm-pr-bitbucket-plugin:helm-configuration-js')}
@@ -95,6 +95,7 @@
  * @param? isDisabled
  */
 {template  .configurationFormContent private="true"}
+	{webResourceManager_requireResource('com.atlassian.auiplugin:aui-form-validation')}
 	{call aui.form.textareaField}
 		{param id: 'default-values' /}
 		{param labelContent: 'Default values' /}
@@ -125,6 +126,14 @@
 		{param labelContent: 'Helmfile environments' /}
 		{param value: $configuration.helmfileEnvironments /}
 		{param placeholderText: 'Environments per line here...' /}
+		{param isDisabled: $isDisabled /}
+	{/call}
+	{call aui.form.textareaField}
+		{param id: 'env-entries' /}
+		{param labelContent: 'Additional env entries' /}
+		{param value: $configuration.env /}
+		{param placeholderText: 'Environment entries per line here...' /}
+		{param validationArguments: [ 'pattern': '^(([\\w-])+=[^\\n]+(\\n([\\w-])+=[^\\n]+)*)?$', 'pattern-msg': 'Not valid env entries' ]/}
 		{param isDisabled: $isDisabled /}
 	{/call}
 	{call aui.form.buttons}

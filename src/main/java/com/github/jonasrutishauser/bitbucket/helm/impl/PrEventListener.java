@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.TreeSet;
 
+import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
 
@@ -110,7 +111,7 @@ public class PrEventListener {
         prService.streamChanges(new PullRequestChangesRequest.Builder(pullRequest).withComments(false).build(),
                 new AbstractChangeCallback() {
                     @Override
-                    public boolean onChange(Change change) throws IOException {
+                    public boolean onChange(@Nonnull Change change) throws IOException {
                         if (DELETE != change.getType() && SUBMODULE != change.getNodeType()) {
                             int endIndex = change.getPath().getComponents().length;
                             if (FILE == change.getNodeType()) {

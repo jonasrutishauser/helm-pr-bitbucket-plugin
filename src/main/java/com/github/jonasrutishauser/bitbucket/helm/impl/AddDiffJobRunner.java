@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
 
@@ -68,7 +69,7 @@ public class AddDiffJobRunner implements JobRunner {
     }
 
     @Override
-    public JobRunnerResponse runJob(JobRunnerRequest request) {
+    public JobRunnerResponse runJob(@Nonnull JobRunnerRequest request) {
         Map<String, Serializable> parameters = request.getJobConfig().getParameters();
         int repositoryId = ((Number) parameters.get(REPOSITORY_ID)).intValue();
         long pullRequestId = ((Number) parameters.get(PULL_REQUEST_ID)).longValue();

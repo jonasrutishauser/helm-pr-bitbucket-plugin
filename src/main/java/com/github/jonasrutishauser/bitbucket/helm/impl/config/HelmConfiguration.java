@@ -16,9 +16,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import javax.inject.Inject;
@@ -50,7 +52,7 @@ public class HelmConfiguration {
     private static final String PROJECT_KEY_PREFIX = KEY_PREFIX + "projects:";
     private static final String REPO_KEY_PREFIX = KEY_PREFIX + "repos:";
 
-    private static final String[] CONFIGURATION_KEYS = {"template-mode", "test-values-directory", "default-values", "helmfile-environments"};
+    private static final String[] CONFIGURATION_KEYS = {"template-mode", "test-values-directory", "default-values", "helmfile-environments", "env-entries"};
     private static final String ACTIVE_KEY = ":active";
 
     private final PluginSettings settings;
@@ -87,6 +89,7 @@ public class HelmConfiguration {
         configuration.put("testValuesDirectory", getTestValuesDirectory(scope));
         configuration.put("templateMode", getTemplateMode(scope));
         configuration.put("helmfileEnvironments", getHelmfileEnvironments(scope));
+        configuration.put("env", getEnv(scope));
         configuration.put("active", getActive(scope));
         if (scope != null) {
             configuration.put("overwritten", Boolean.valueOf(isOverwritten(scope)));
@@ -220,6 +223,19 @@ public class HelmConfiguration {
 
     private String getHelmfileEnvironments(Scope scope) {
         return getSettingsValue(CONFIGURATION_KEYS[3], scope, "");
+    }
+
+    void setEnv(String env) {
+        settings.put(KEY_PREFIX + CONFIGURATION_KEYS[4], env);
+    }
+
+    public Map<String, String> getEnv(Repository repository) {
+        return Arrays.stream(getEnv(scope(repository)).split("\n")).map(line -> line.split("=", 2))
+                .collect(Collectors.toMap(part -> part[0], part -> part[1]));
+    }
+
+    public String getEnv(Scope scope) {
+        return getSettingsValue(CONFIGURATION_KEYS[4], scope, "");
     }
 
     public long getExecutionTimeout() {

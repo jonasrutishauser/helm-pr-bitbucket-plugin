@@ -20,6 +20,7 @@ import com.atlassian.soy.renderer.SoyTemplateRenderer;
 
 @Named
 public class RepositoryConfiguration extends HttpServlet {
+    private static final long serialVersionUID = 1L;
 
     private final LoginUriProvider loginUriProvider;
     private final SoyTemplateRenderer soyTemplateRenderer;

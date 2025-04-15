@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.annotation.Nonnull;
+
 import com.atlassian.bitbucket.scm.CommandOutputHandler;
 import com.atlassian.bitbucket.scm.Watchdog;
 
@@ -20,7 +22,7 @@ public class LsTreeCommandOutputHandler implements CommandOutputHandler<List<Git
     private List<GitFile> files;
 
     @Override
-    public void process(InputStream output) throws IOException {
+    public void process(@Nonnull InputStream output) throws IOException {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(output, UTF_8))) {
             files = reader.lines().map(this::toGitFile).collect(toList());
         }
@@ -32,7 +34,7 @@ public class LsTreeCommandOutputHandler implements CommandOutputHandler<List<Git
     }
 
     @Override
-    public void setWatchdog(Watchdog watchdog) {
+    public void setWatchdog(@Nonnull Watchdog watchdog) {
         // ignore
     }
 

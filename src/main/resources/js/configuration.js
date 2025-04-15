@@ -4,5 +4,6 @@ AJS.toInit(function() {
 		$('#test-values-directory').prop('disabled', !event.target.checked)
 		$('#template-mode input').prop('disabled', !event.target.checked)
 		$('#helmfile-environments').prop('disabled', !event.target.checked)
+		$('#env-entries').prop('disabled', !event.target.checked)
 	});
 });

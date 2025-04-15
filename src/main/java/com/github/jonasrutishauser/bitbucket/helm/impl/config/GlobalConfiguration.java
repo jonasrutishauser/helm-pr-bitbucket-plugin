@@ -24,6 +24,7 @@ import com.atlassian.soy.renderer.SoyTemplateRenderer;
 
 @Named
 public class GlobalConfiguration extends HttpServlet {
+    private static final long serialVersionUID = 1L;
 
     private final WebSudoManager webSudoManager;
     private final SoyTemplateRenderer soyTemplateRenderer;
@@ -70,6 +71,7 @@ public class GlobalConfiguration extends HttpServlet {
             configuration.setTestValuesDirectory(parameters.get("test-values-directory").get(0).getString());
             configuration.setTemplateMode(HelmTemplateMode.valueOf(parameters.get("template-mode").get(0).getString().toUpperCase()));
             configuration.setHelmfileEnvironments(parameters.get("helmfile-environments").get(0).getString());
+            configuration.setEnv(parameters.get("env-entries").get(0).getString());
             if (parameters.get("binary-upload") != null && parameters.get("binary-upload").get(0).getSize() > 0) {
                 configuration.uploadBinary("helm", parameters.get("binary-upload").get(0).getInputStream());
             }

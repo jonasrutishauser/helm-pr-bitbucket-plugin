@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -72,7 +73,7 @@ public class HelmfileTemplater extends AbstractTemplater {
     protected void templateSingleFile(Repository repository, Path directory, GitWorkTree targetWorkTree,
             Path targetFile, Path cacheDir, Optional<String> additionalConfiguration) throws IOException {
         Output output = helmfileProcessBuilder(directory, additionalConfiguration.orElse("default")) //
-                .environment(getHelmfileEnvironment(cacheDir)) //
+                .environment(getHelmfileEnvironment(repository, cacheDir)) //
                 .start() //
                 .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
                 .tryGet();
@@ -95,7 +96,7 @@ public class HelmfileTemplater extends AbstractTemplater {
         String stdErr = "";
         try (Stream<String> stdErrStream = helmfileProcessBuilder(directory, additionalConfiguration.orElse("default"), "--output-dir-template",
                     outputDir.toString() + "/{{ .Release.Name }}") //
-                            .environment(getHelmfileEnvironment(cacheDir)) //
+                            .environment(getHelmfileEnvironment(repository, cacheDir)) //
                             .noStdout() //
                             .start() //
                             .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
@@ -121,7 +122,7 @@ public class HelmfileTemplater extends AbstractTemplater {
         targetWorkTree.builder().add().path(targetFile.toString()).build().call();
     }
 
-    private Map<String, String> getHelmfileEnvironment(Path cacheDir) throws IOException {
+    private Map<String, String> getHelmfileEnvironment(Repository repository, Path cacheDir) throws IOException {
         Path secretsPluginDir = MoreFiles.resolve(cacheDir, "helm-data", "plugins", "secrets");
         if (!Files.isDirectory(secretsPluginDir)) {
             MoreFiles.mkdir(secretsPluginDir);
@@ -134,11 +135,13 @@ public class HelmfileTemplater extends AbstractTemplater {
                         .ownerPermission(EXECUTE).ownerPermission(READ).ownerPermission(WRITE).build());
             }
         }
-        return Map.of("XDG_CACHE_HOME", cacheDir.resolve("helmfile-cache").toString(), //
-                "HELMFILE_TEMPDIR", cacheDir.resolve("helmfile-temp").toString(), //
-                "HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString(), //
-                "HELM_CONFIG_HOME", cacheDir.resolve("helm-config").toString(), //
-                "HELM_DATA_HOME", cacheDir.resolve("helm-data").toString());
+        Map<String, String> env = new HashMap<>(configuration.getEnv(repository));
+        env.put("XDG_CACHE_HOME", cacheDir.resolve("helmfile-cache").toString());
+        env.put("HELMFILE_TEMPDIR", cacheDir.resolve("helmfile-temp").toString());
+        env.put("HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString());
+        env.put("HELM_CONFIG_HOME", cacheDir.resolve("helm-config").toString());
+        env.put("HELM_DATA_HOME", cacheDir.resolve("helm-data").toString());
+        return env;
     }
 
     private FluentProcessBuilder helmfileProcessBuilder(Path directory, String environment, String... additionalArgs) {
@@ -146,11 +149,11 @@ public class HelmfileTemplater extends AbstractTemplater {
                 configuration.getHelmfileBinary(), //
                 "-b", configuration.getHelmBinary(), //
                 "-k", configuration.getKustomizeBinary(), //
-                "-f", directory.toString(), //
                 "-e", environment, //
                 "-q", //
                 "template", //
-                "--include-crds");
+                "--include-crds") //
+                .workPath(directory);
         for (String additionalArg : additionalArgs) {
             processBuilder = processBuilder.arg(additionalArg);
         }

@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -79,7 +80,7 @@ public class HelmTemplater extends AbstractTemplater {
         StringJoiner error = new StringJoiner(System.lineSeparator());
         try (Stream<String> stdErrStream = FluentProcess
                 .builder(configuration.getHelmBinary(), "dependency", "build", chartDir.toString()) //
-                .environment(getHelmEnvironment(cacheDir)) //
+                .environment(getHelmEnvironment(repository, cacheDir)) //
                 .noStdout() //
                 .start() //
                 .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
@@ -89,7 +90,7 @@ public class HelmTemplater extends AbstractTemplater {
             LOGGER.warn("helm dependency build exited with {}: {}", e.getExitCode(), error.toString());
         }
         Output output = helmProcessBuilder(chartDir, getValues(repository, chartDir, cacheDir, testValueFile)) //
-                .environment(getHelmEnvironment(cacheDir)) //
+                .environment(getHelmEnvironment(repository, cacheDir)) //
                 .start() //
                 .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
                 .tryGet();
@@ -110,7 +111,7 @@ public class HelmTemplater extends AbstractTemplater {
         StringJoiner stdErr = new StringJoiner(System.lineSeparator());
         try (Stream<String> stdErrStream = FluentProcess
                 .builder(configuration.getHelmBinary(), "dependency", "build", chartDir.toString()) //
-                .environment(getHelmEnvironment(cacheDir)) //
+                .environment(getHelmEnvironment(repository, cacheDir)) //
                 .noStdout() //
                 .start() //
                 .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
@@ -121,7 +122,7 @@ public class HelmTemplater extends AbstractTemplater {
         }
         try (Stream<String> stdErrStream = helmProcessBuilder(chartDir, getValues(repository, chartDir, cacheDir, testValueFile), "--output-dir",
                 outputDir.toString()) //
-                        .environment(getHelmEnvironment(cacheDir)) //
+                        .environment(getHelmEnvironment(repository, cacheDir)) //
                         .noStdout() //
                         .start() //
                         .withTimeout(Duration.ofMillis(configuration.getExecutionTimeout())) //
@@ -160,12 +161,14 @@ public class HelmTemplater extends AbstractTemplater {
                 .orElseGet(() -> asList(defaultValues));
     }
 
-    private Map<String, String> getHelmEnvironment(Path cacheDir) {
-        return Map.of("HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString(), //
-                "HELM_CONFIG_HOME", cacheDir.resolve("helm-config").toString(), //
-                "HELM_DATA_HOME", cacheDir.resolve("helm-data").toString());
+    private Map<String, String> getHelmEnvironment(Repository repository, Path cacheDir) {
+        Map<String, String> env = new HashMap<>(configuration.getEnv(repository));
+        env.put("HELM_CACHE_HOME", cacheDir.resolve("helm-cache").toString());
+        env.put("HELM_CONFIG_HOME", cacheDir.resolve("helm-config").toString());
+        env.put("HELM_DATA_HOME", cacheDir.resolve("helm-data").toString());
+        return env;
     }
-    
+
     private FluentProcessBuilder helmProcessBuilder(Path chartDir, List<Path> values, String... additionalArgs) {
         FluentProcessBuilder processBuilder = FluentProcess.builder( //
                 configuration.getHelmBinary(), //
