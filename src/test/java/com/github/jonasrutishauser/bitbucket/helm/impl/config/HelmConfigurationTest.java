@@ -251,6 +251,40 @@ class HelmConfigurationTest {
     }
 
     @Test
+    public void getEnv_globalSet() {
+        Repository repository = createRepository(13, 42);
+        testee.setEnv("SOME=value\nFOO=bar=test");
+
+        assertEquals(Map.of("SOME", "value", "FOO", "bar=test"), testee.getEnv(repository));
+    }
+
+    @Test
+    public void getEnv_projectSet() {
+        Repository repository = createRepository(13, 42);
+        settings.put("helm-pr-bitbucket-plugin:projects:42:env-entries", "SOME=value\nFOO=bar=test");
+
+        assertEquals(Map.of("SOME", "value", "FOO", "bar=test"), testee.getEnv(repository));
+    }
+
+    @Test
+    public void getEnv_repoSet() {
+        Repository repository = createRepository(13, 42);
+        settings.put("helm-pr-bitbucket-plugin:repos:13:env-entries", "SOME=value\nFOO=bar=test");
+
+        assertEquals(Map.of("SOME", "value", "FOO", "bar=test"), testee.getEnv(repository));
+    }
+
+    @Test
+    public void getEnv_allScopesSet() {
+        Repository repository = createRepository(13, 42);
+        settings.put("helm-pr-bitbucket-plugin:env-entries", "TEST=a");
+        settings.put("helm-pr-bitbucket-plugin:projects:42:env-entries", "A=B");
+        settings.put("helm-pr-bitbucket-plugin:repos:13:env-entries", "SOME=value\nFOO=bar=test");
+
+        assertEquals(Map.of("SOME", "value", "FOO", "bar=test"), testee.getEnv(repository));
+    }
+
+    @Test
     public void onRepositoryDeleted_deletesAllKeys() {
         Repository repository = createRepository(13, 42);
         settings.put("helm-pr-bitbucket-plugin:repos:13:active", "false");
