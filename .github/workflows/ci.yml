@@ -92,7 +92,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
       - name: Upload test results to Codecov
-        if: ${{ matrix.java == '21' && github.event_name != 'release' && github.event_name != 'pull_request_target' }}
+        if: ${{ github.event_name != 'release' && github.event_name != 'pull_request_target' }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
