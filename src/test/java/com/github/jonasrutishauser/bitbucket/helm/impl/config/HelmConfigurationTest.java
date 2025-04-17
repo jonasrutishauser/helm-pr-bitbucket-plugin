@@ -253,7 +253,7 @@ class HelmConfigurationTest {
     @Test
     public void getEnv_globalSet() {
         Repository repository = createRepository(13, 42);
-        testee.setEnv("SOME=value\nFOO=bar=test");
+        testee.setEnv("SOME=value\r\nFOO=bar=test");
 
         assertEquals(Map.of("SOME", "value", "FOO", "bar=test"), testee.getEnv(repository));
     }

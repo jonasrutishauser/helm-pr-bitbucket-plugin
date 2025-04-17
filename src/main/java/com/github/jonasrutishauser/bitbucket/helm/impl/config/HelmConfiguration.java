@@ -231,7 +231,7 @@ public class HelmConfiguration {
 
     public Map<String, String> getEnv(Repository repository) {
         return Arrays.stream(getEnv(scope(repository)).split("\n")).map(line -> line.split("=", 2))
-                .collect(Collectors.toMap(part -> part[0], part -> part[1]));
+                .collect(Collectors.toMap(part -> part[0].trim(), part -> part[1].replaceAll("\r+$", "")));
     }
 
     public String getEnv(Scope scope) {
