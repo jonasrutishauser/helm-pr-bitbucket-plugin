@@ -22,7 +22,7 @@ jobs:
   build:
     uses: jonasrutishauser/parent/.github/workflows/common-ci.yml@5978e8d788d355fd9c2892d914502cb4cbb73bf8 # v45
     with:
-      java-versions: '["17"]'
+      java-versions: '["21"]'
       publish-coverage-report: true
       sonar-report: true
     secrets:
