@@ -1,7 +1,7 @@
 package com.github.jonasrutishauser.bitbucket.helm.impl;
 
-import javax.inject.Inject;
-import javax.inject.Named;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
 
 import com.atlassian.bitbucket.avatar.SimpleAvatarSupplier;
 import com.atlassian.bitbucket.permission.Permission;
