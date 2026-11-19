@@ -2,8 +2,8 @@ package com.github.jonasrutishauser.bitbucket.helm.impl.config;
 
 import java.util.Arrays;
 
-import javax.inject.Inject;
-import javax.inject.Named;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
 
 import com.atlassian.bitbucket.AuthorisationException;
 import com.atlassian.bitbucket.permission.Permission;
