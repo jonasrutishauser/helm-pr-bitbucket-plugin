@@ -68,7 +68,7 @@ jobs:
       - name: Sonar Report
         if: ${{ !startsWith(github.event_name, 'pull_request') || !github.event.pull_request.head.repo.fork }}
         run: >
-          mvn -B -e -Dstyle.color=always jacoco:report jacoco:report-integration@report-integration sonar:sonar -Dsonar.organization=jonasrutishauser-github
+          mvn -B -e -Dstyle.color=always jacoco:report jacoco:report-integration@report-integration org.sonarsource.scanner.maven:sonar-maven-plugin:5.9.0.7382:sonar -Dsonar.organization=jonasrutishauser-github
         env:
           GITHUB_TOKEN: ${{ github.token }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
