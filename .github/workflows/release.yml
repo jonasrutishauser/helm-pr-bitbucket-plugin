@@ -14,12 +14,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: 17
+          problem-matcher: true
       - name: Setup Git
         run: >
           git config --global user.email "actions@github.com" && 
@@ -41,7 +42,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         id: release
       - name: Create Release Entry
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.release.outputs.RELEASED_VERSION }}
           name: Helm PR Bitbucket Plugin ${{ steps.release.outputs.RELEASED_VERSION }}
