@@ -42,7 +42,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         id: release
       - name: Create Release Entry
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: v${{ steps.release.outputs.RELEASED_VERSION }}
           name: Helm PR Bitbucket Plugin ${{ steps.release.outputs.RELEASED_VERSION }}
